@@ -78,11 +78,15 @@ public class ItemFlib extends Item {
   }
 
   public void tryRepairWith(ItemStack stackToRepair, Player player, Item target) {
+    tryRepairWith(stackToRepair, player, target, 1);
+  }
+
+  public void tryRepairWith(ItemStack stackToRepair, Player player, Item target, int damageToRepair) {
     if (stackToRepair.isDamaged()) {
       ItemStack torches = this.findAmmo(player, target);
       if (!torches.isEmpty()) {
         torches.shrink(1);
-        ItemStackUtil.repairItem(stackToRepair);
+        ItemStackUtil.repairItem(stackToRepair, damageToRepair);
       }
     }
   }
