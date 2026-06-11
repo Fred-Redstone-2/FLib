@@ -108,7 +108,7 @@ public class RenderBlockUtils {
         g = 1f;
         b = 1f;
       }
-      //      addVertexData 
+      //      addVertexData
       boolean readExistingColor = false;
       builder.putBulkData(matrixEntry, bakedquad, r, g, b, alpha, combinedLights, combinedOverlay, readExistingColor);
     }
@@ -183,7 +183,7 @@ public class RenderBlockUtils {
 
   /**
    * Call from TESR perspective
-   * 
+   *
    * @param level
    */
   public static void renderAsBlock(Level level, final BlockPos centerPos, final List<BlockPos> shape, PoseStack matrix, ItemStack stack, float alpha, float scale) {
@@ -193,9 +193,9 @@ public class RenderBlockUtils {
 
   /**
    * Render this BLOCK right here in the world, start with alpha and scale near 1. Call from TESR perspective
-   * 
+   *
    * used by cyclic:light_camo
-   * 
+   *
    */
   public static void renderAsBlock(Level world, final BlockPos centerPos, final List<BlockPos> shape, PoseStack matrix, BlockState renderBlockState, float alpha, float scale) {
 
@@ -231,7 +231,7 @@ public class RenderBlockUtils {
         for (Direction direction : Direction.values()) {
           RenderBlockUtils.renderModelBrightnessColorQuads(matrix.last(), builder, red, green, blue, alpha,
               ibakedmodel.getQuads(renderBlockState, direction, world.random,
-                  ibakedmodel.getModelData(world, centerPos, renderBlockState, null), FakeBlockRenderTypes.FAKE_BLOCK), // EmptyModelData.INSTANCE 
+                  ibakedmodel.getModelData(world, centerPos, renderBlockState, null), FakeBlockRenderTypes.FAKE_BLOCK), // EmptyModelData.INSTANCE
               combinedLights, combinedOverlay);
         }
       }
@@ -252,7 +252,7 @@ public class RenderBlockUtils {
 
   /**
    * Used by TESRs
-   * 
+   *
    * View can be tile entity position, or player pos depending on context mc.gameRenderer.getMainCamera().getPosition();
    */
   public static void renderOutline(BlockPos view, List<BlockPos> coords, PoseStack matrix, float scale, Color color) {
@@ -287,7 +287,7 @@ public class RenderBlockUtils {
 
   /**
    * Create your own PoseStack and view perspective and use the method that does not depend on forge events
-   * 
+   *
    * @param evt
    * @param coords
    * @param alpha
