@@ -21,6 +21,6 @@ public class ConfigModule {
   }
 
   public ConfigModule(ModContainer modContainer) {
-    modContainer.registerConfig(ModConfig.Type.COMMON, CONFIG);
+    modContainer.registerConfig(ModConfig.Type.LOCAL, CONFIG);
   }
 }

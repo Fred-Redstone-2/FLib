@@ -52,6 +52,12 @@ public class TintedVertexConsumer implements VertexConsumer {
   }
 
   @Override
+  public VertexConsumer setUv3(float v, float v1) {
+    delegate.setUv3(v, v1);
+    return this;
+  }
+
+  @Override
   public VertexConsumer setNormal(float nx, float ny, float nz) {
     delegate.setNormal(nx, ny, nz);
     return this;

@@ -2,10 +2,9 @@ package com.lothrazar.library.render.type;
 
 import java.util.Optional;
 import com.lothrazar.library.FutureLibMod;
-import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.pipeline.*;
-import com.mojang.blaze3d.platform.CompareOp;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.renderpearl.api.pipeline.*;
 import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.rendertype.LayeringTransform;
@@ -15,7 +14,8 @@ import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.client.event.RegisterRenderPipelinesEvent;
 
-import static com.lothrazar.library.render.type.Samplers.SAMPLER_0;
+import static com.mojang.renderpearl.api.pipeline.CompareOp.ALWAYS_PASS;
+import static com.mojang.renderpearl.api.pipeline.PrimitiveTopology.QUADS;
 
 /**
  * Render Types with help from direwolf20 MIT open source project https://github.com/Direwolf20-MC/BuildingGadgets/blob/1.15/LICENSE.md
@@ -32,7 +32,7 @@ public class FakeBlockRenderTypes {
 
   private static final RenderPipeline BEAM_PIPELINE = RenderPipeline.builder(RenderPipelines.TEXT_SNIPPET)
       .withBindGroupLayout(BindGroupLayouts.FOG)
-      .withBindGroupLayout(SAMPLER_0.sampler())
+      .withBindGroupLayout(BindGroupLayouts.SAMPLER0)
       .withLocation(Identifier.fromNamespaceAndPath(FutureLibMod.MODID, "pipeline/fakeblock_beam"))
       .withVertexShader("core/rendertype_text")
       .withFragmentShader("core/rendertype_text")
@@ -48,12 +48,12 @@ public class FakeBlockRenderTypes {
 
   private static final RenderPipeline FAKE_BLOCK_PIPELINE = RenderPipeline.builder(RenderPipelines.TEXT_SNIPPET)
       .withBindGroupLayout(BindGroupLayouts.FOG)
-      .withBindGroupLayout(SAMPLER_0.sampler())
+      .withBindGroupLayout(BindGroupLayouts.SAMPLER0)
       .withLocation(Identifier.fromNamespaceAndPath(FutureLibMod.MODID, "pipeline/fakeblock"))
       .withVertexShader("core/rendertype_text")
       .withFragmentShader("core/rendertype_text")
       .withColorTargetState(new ColorTargetState(BlendFunction.ADDITIVE))
-      .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, true))
+      .withDepthStencilState(new DepthStencilState(ALWAYS_PASS, true))
       .build();
 
   /**
@@ -70,9 +70,9 @@ public class FakeBlockRenderTypes {
       .withVertexShader("core/position_color")
       .withFragmentShader("core/position_color")
       .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
-      .withPrimitiveTopology(PrimitiveTopology.QUADS)
+      .withPrimitiveTopology(QUADS)
       .withColorTargetState(new ColorTargetState(BlendFunction.ADDITIVE))
-      .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, true))
+      .withDepthStencilState(new DepthStencilState(ALWAYS_PASS, true))
       // Unlike this file's other pipelines (BEAM/FAKE_BLOCK/LASER all disable culling), this one
       // never set an explicit cull state. renderCube()'s 6 hand-authored quad faces are only
       // correctly wound for some of the 6 faces, so with default backface culling active, half the
@@ -101,7 +101,7 @@ public class FakeBlockRenderTypes {
   // Like RenderPipelines.LINES_SNIPPET, but with depth testing disabled so the outline is always visible.
   private static final RenderPipeline NO_DEPTH_LINES_PIPELINE = RenderPipeline.builder(RenderPipelines.LINES_SNIPPET)
       .withLocation(Identifier.fromNamespaceAndPath(FutureLibMod.MODID, "pipeline/tomb_lines"))
-      .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, true))
+      .withDepthStencilState(new DepthStencilState(ALWAYS_PASS, true))
       .build();
 
   /**

@@ -92,8 +92,8 @@ public class RenderEntityToBlockLaser {
     matrix.mulPose(Minecraft.getInstance().gameRenderer.mainCamera().getViewRotationMatrix(new Matrix4f()));
     matrix.translate(-view.x(), -view.y(), -view.z());
     matrix.translate(from.x, from.y, from.z);
-    matrix.mulPose(Axis.YP.rotationDegrees(Mth.lerp(ticks, -player.getYRot(), -player.yRotO)));
-    matrix.mulPose(Axis.XP.rotationDegrees(Mth.lerp(ticks, player.getXRot(), player.xRotO)));
+    matrix.rotate(Axis.YP.rotationDegrees(Mth.lerp(ticks, -player.getYRot(), -player.yRotO)));
+    matrix.rotate(Axis.XP.rotationDegrees(Mth.lerp(ticks, player.getXRot(), player.xRotO)));
 
     // Three submissions must be made BEFORE popPose: pose captured on submit
     // additive laser beam

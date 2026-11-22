@@ -14,7 +14,7 @@ import net.neoforged.neoforge.common.Tags;
 public class BlockstatesUtil {
 
   public static boolean isGlass(BlockState blockIn) {
-    return blockIn.is(Tags.Blocks.GLASS_BLOCKS) || blockIn.is(Tags.Blocks.GLASS_PANES);
+    return blockIn.is(Tags.BlockItems.GLASS_BLOCKS.block()) || blockIn.is(Tags.BlockItems.GLASS_PANES.block());
   }
 
   public static Direction getFacingFromEntity(BlockPos clickedBlock, LivingEntity entity) {
@@ -35,7 +35,7 @@ public class BlockstatesUtil {
   }
 
   public static ArrayList<BlockPos> findBlocks(Level world, BlockPos start, Block blockHunt, final int radiusIn, boolean poweredState) {
-    ArrayList<BlockPos> found = new ArrayList<BlockPos>();
+    ArrayList<BlockPos> found = new ArrayList<>();
     int xMin = start.getX() - radiusIn;
     int xMax = start.getX() + radiusIn;
     int yMin = start.getY() - radiusIn;
