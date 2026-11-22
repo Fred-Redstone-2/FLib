@@ -1,5 +1,6 @@
 package com.lothrazar.library.util;
 
+import net.minecraft.client.renderer.SubmitNodeCollector;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import com.lothrazar.library.render.type.LineRenderType;
@@ -7,8 +8,6 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
@@ -30,40 +29,87 @@ public class RenderUtil {
     poseStack.item(stack, width / 2, height / 2, 0);
   }
 
-  public static void createBox(MultiBufferSource.BufferSource bufferSource, PoseStack poseStack, float x, float y, float z, float offset) {
+  public static void createBox(SubmitNodeCollector collector, PoseStack poseStack,
+                               float x, float y, float z, float offset) {
     long c = (System.currentTimeMillis() / 15L) % 360L;
     float[] color = RenderUtil.getHSBtoRGBF(c / 360f, 1f, 1f);
-    int packedColor = 0xFF000000 | (int) (color[0] * 255) << 16 | (int) (color[1] * 255) << 8 | (int) (color[2] * 255);
+    int packedColor = 0xFF000000
+            | (int) (color[0] * 255) << 16
+            | (int) (color[1] * 255) << 8
+            | (int) (color[2] * 255);
+
     Minecraft mc = Minecraft.getInstance();
-    Vec3 cameraPosition = mc.gameRenderer.getMainCamera().position();
+    Vec3 cameraPosition = mc.gameRenderer.mainCamera().position();
+
     // get a closer pos if too far
     Vec3 vec = new Vec3(x, y, z).subtract(cameraPosition);
-    if (vec.distanceTo(Vec3.ZERO) > 200d) { // could be 300
+    if (vec.length() > 200d) { // could be 300
       vec = vec.normalize().scale(200d);
-      x += vec.x;
-      y += vec.y;
-      z += vec.z;
+      x += (float) vec.x;
+      y += (float) vec.y;
+      z += (float) vec.z;
     }
-    RenderType renderType = LineRenderType.tombLinesType();
-    VertexConsumer vertexConsumer = bufferSource.getBuffer(renderType);
+
+    // Variables captured by the lambda must be essentially final
+    final float fx = x, fy = y, fz = z;
+
+    poseStack.pushPose();
     poseStack.translate(-cameraPosition.x, -cameraPosition.y, -cameraPosition.z);
-    PoseStack.Pose pose = poseStack.last();
-    Matrix4f mat = pose.pose();
-    // no depth test is already baked into the tomb-lines RenderType's pipeline, no RenderSystem toggling needed here.
-    addEdge(vertexConsumer, pose, mat, packedColor, x, y, z, x + offset, y, z);
-    addEdge(vertexConsumer, pose, mat, packedColor, x, y, z, x, y + offset, z);
-    addEdge(vertexConsumer, pose, mat, packedColor, x, y, z, x, y, z + offset);
-    addEdge(vertexConsumer, pose, mat, packedColor, x + offset, y + offset, z + offset, x, y + offset, z + offset);
-    addEdge(vertexConsumer, pose, mat, packedColor, x + offset, y + offset, z + offset, x + offset, y, z + offset);
-    addEdge(vertexConsumer, pose, mat, packedColor, x + offset, y + offset, z + offset, x + offset, y + offset, z);
-    addEdge(vertexConsumer, pose, mat, packedColor, x, y + offset, z, x, y + offset, z + offset);
-    addEdge(vertexConsumer, pose, mat, packedColor, x, y + offset, z, x + offset, y + offset, z);
-    addEdge(vertexConsumer, pose, mat, packedColor, x + offset, y, z, x + offset, y, z + offset);
-    addEdge(vertexConsumer, pose, mat, packedColor, x + offset, y, z, x + offset, y + offset, z);
-    addEdge(vertexConsumer, pose, mat, packedColor, x, y, z + offset, x + offset, y, z + offset);
-    addEdge(vertexConsumer, pose, mat, packedColor, x, y, z + offset, x, y + offset, z + offset);
-    bufferSource.endBatch(renderType);
+
+    // Geometry will be drawn by the FeatureRenderDispatcher; no-depth-test stays defined in RenderType's pipeline
+    collector.submitCustomGeometry(poseStack, LineRenderType.tombLinesType(), (pose, vc) -> {
+      Matrix4f mat = pose.pose();
+      addEdge(vc, pose, mat, packedColor, fx, fy, fz, fx + offset, fy, fz);
+      addEdge(vc, pose, mat, packedColor, fx, fy, fz, fx, fy + offset, fz);
+      addEdge(vc, pose, mat, packedColor, fx, fy, fz, fx, fy, fz + offset);
+      addEdge(vc, pose, mat, packedColor, fx + offset, fy + offset, fz + offset, fx, fy + offset, fz + offset);
+      addEdge(vc, pose, mat, packedColor, fx + offset, fy + offset, fz + offset, fx + offset, fy, fz + offset);
+      addEdge(vc, pose, mat, packedColor, fx + offset, fy + offset, fz + offset, fx + offset, fy + offset, fz);
+      addEdge(vc, pose, mat, packedColor, fx, fy + offset, fz, fx, fy + offset, fz + offset);
+      addEdge(vc, pose, mat, packedColor, fx, fy + offset, fz, fx + offset, fy + offset, fz);
+      addEdge(vc, pose, mat, packedColor, fx + offset, fy, fz, fx + offset, fy, fz + offset);
+      addEdge(vc, pose, mat, packedColor, fx + offset, fy, fz, fx + offset, fy + offset, fz);
+      addEdge(vc, pose, mat, packedColor, fx, fy, fz + offset, fx + offset, fy, fz + offset);
+      addEdge(vc, pose, mat, packedColor, fx, fy, fz + offset, fx, fy + offset, fz + offset);
+    });
+
+    poseStack.popPose();
   }
+
+//  public static void createBox(MultiBufferSource.BufferSource bufferSource, PoseStack poseStack, float x, float y, float z, float offset) {
+//    long c = (System.currentTimeMillis() / 15L) % 360L;
+//    float[] color = RenderUtil.getHSBtoRGBF(c / 360f, 1f, 1f);
+//    int packedColor = 0xFF000000 | (int) (color[0] * 255) << 16 | (int) (color[1] * 255) << 8 | (int) (color[2] * 255);
+//    Minecraft mc = Minecraft.getInstance();
+//    Vec3 cameraPosition = mc.gameRenderer.mainCamera().position();
+//    // get a closer pos if too far
+//    Vec3 vec = new Vec3(x, y, z).subtract(cameraPosition);
+//    if (vec.distanceTo(Vec3.ZERO) > 200d) { // could be 300
+//      vec = vec.normalize().scale(200d);
+//      x += vec.x;
+//      y += vec.y;
+//      z += vec.z;
+//    }
+//    RenderType renderType = LineRenderType.tombLinesType();
+//    VertexConsumer vertexConsumer = bufferSource.getBuffer(renderType);
+//    poseStack.translate(-cameraPosition.x, -cameraPosition.y, -cameraPosition.z);
+//    PoseStack.Pose pose = poseStack.last();
+//    Matrix4f mat = pose.pose();
+//    // no depth test is already baked into the tomb-lines RenderType's pipeline, no RenderSystem toggling needed here.
+//    addEdge(vertexConsumer, pose, mat, packedColor, x, y, z, x + offset, y, z);
+//    addEdge(vertexConsumer, pose, mat, packedColor, x, y, z, x, y + offset, z);
+//    addEdge(vertexConsumer, pose, mat, packedColor, x, y, z, x, y, z + offset);
+//    addEdge(vertexConsumer, pose, mat, packedColor, x + offset, y + offset, z + offset, x, y + offset, z + offset);
+//    addEdge(vertexConsumer, pose, mat, packedColor, x + offset, y + offset, z + offset, x + offset, y, z + offset);
+//    addEdge(vertexConsumer, pose, mat, packedColor, x + offset, y + offset, z + offset, x + offset, y + offset, z);
+//    addEdge(vertexConsumer, pose, mat, packedColor, x, y + offset, z, x, y + offset, z + offset);
+//    addEdge(vertexConsumer, pose, mat, packedColor, x, y + offset, z, x + offset, y + offset, z);
+//    addEdge(vertexConsumer, pose, mat, packedColor, x + offset, y, z, x + offset, y, z + offset);
+//    addEdge(vertexConsumer, pose, mat, packedColor, x + offset, y, z, x + offset, y + offset, z);
+//    addEdge(vertexConsumer, pose, mat, packedColor, x, y, z + offset, x + offset, y, z + offset);
+//    addEdge(vertexConsumer, pose, mat, packedColor, x, y, z + offset, x, y + offset, z + offset);
+//    bufferSource.endBatch(renderType);
+//  }
 
   private static void addEdge(VertexConsumer vertexConsumer, PoseStack.Pose pose, Matrix4f mat, int color, float x1, float y1, float z1, float x2, float y2, float z2) {
     Vector3f normal = new Vector3f(x2 - x1, y2 - y1, z2 - z1).normalize();

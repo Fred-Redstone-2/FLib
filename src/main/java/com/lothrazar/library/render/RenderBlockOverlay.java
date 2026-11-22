@@ -1,12 +1,12 @@
 package com.lothrazar.library.render;
 
+import net.minecraft.client.renderer.SubmitNodeCollector;
 import org.joml.Matrix4f;
 import com.lothrazar.library.render.type.OverlayRenderType;
 import com.lothrazar.library.util.PlayerClickBlockfaceUtil;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -142,8 +142,8 @@ public class RenderBlockOverlay {
     }
     indexd = indexd.getOpposite();
     final int[] look = lookupArrows(indexd);
-    event.addCustomRenderer((renderState, buffer, poseStack, translucentPass, levelRenderState) -> {
-      renderOverlay(buffer, poseStack, cameraPos, blockPos, hitVec, look);
+    event.addCustomRenderer((renderState, collector, poseStack, levelRenderState) -> {
+      renderOverlay(collector, poseStack, cameraPos, blockPos, hitVec, look);
       return false;
     });
   }
@@ -167,43 +167,89 @@ public class RenderBlockOverlay {
     }
   }
 
-  private void renderOverlay(MultiBufferSource.BufferSource bufferSource, PoseStack poseStack, Vec3 cameraPos, BlockPos blockPos, Vec3 hitVec, int[] look) {
+  private void renderOverlay(SubmitNodeCollector collector, PoseStack poseStack, Vec3 cameraPos,
+                             BlockPos blockPos, Vec3 hitVec, int[] look) {
     double yDiff = hitVec.y - blockPos.getY();
     if (yDiff > PlayerClickBlockfaceUtil.HI && yDiff < PlayerClickBlockfaceUtil.LO) {
       //edge corner case
       return;
     }
-    poseStack.pushPose();
     RenderType renderType = OverlayRenderType.overlayRenderer(id, overlayLocation);
-    VertexConsumer vertexConsumer = bufferSource.getBuffer(renderType);
+
+    poseStack.pushPose();
     poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
     poseStack.translate(blockPos.getX(), blockPos.getY(), blockPos.getZ());
-    //P/N ONLY exist to prevent layer fighting/flashing, push it just outside ontop of the block, so 1 + this fract
-    final float P = 1 / 256f, N = -1 / 256f;
-    final int X = 1, Y = 2, Z = 4;
-    //now draw the box
-    int TOP = 1, EAST = 0, SOUTH = 2, WEST = 3, BOTTOM = 4, NORTH = 5;
-    //draw east
-    poseStack.translate(P, 0, 0);
-    drawSide(vertexConsumer, poseStack.last().pose(), X, Y, Z, uvs[look[EAST]]);// this one has to be est or west side
-    //draw top
-    poseStack.translate(N, P, 0);
-    drawSide(vertexConsumer, poseStack.last().pose(), Y, Z, X, uvs[look[TOP]]); // TOP
-    //SOUTH
-    poseStack.translate(0, N, P);
-    drawSide(vertexConsumer, poseStack.last().pose(), Z, X, Y, uvs[look[SOUTH]]);
-    //WEST
-    poseStack.translate(N, 0, N);
-    drawSide(vertexConsumer, poseStack.last().pose(), 0, Z, Y, uvs[look[WEST]]);
-    //BOTTOM
-    poseStack.translate(P, N, 0);
-    drawSide(vertexConsumer, poseStack.last().pose(), 0, X, Z, uvs[look[BOTTOM]]);
-    //NORTH
-    poseStack.translate(0, P, N);
-    drawSide(vertexConsumer, poseStack.last().pose(), 0, Y, X, uvs[look[NORTH]]);
-    bufferSource.endBatch(renderType);
+
+    collector.submitCustomGeometry(poseStack, renderType, (pose, vertexConsumer) -> {
+      // Local copy: callback executed later, don't touch PoseStack
+      Matrix4f m = new Matrix4f(pose.pose());
+
+      //P/N ONLY exist to prevent layer fighting/flashing, push it just outside ontop of the block, so 1 + this fract
+      final float P = 1 / 256f, N = -1 / 256f;
+      final int X = 1, Y = 2, Z = 4;
+      //now draw the box
+      final int TOP = 1, EAST = 0, SOUTH = 2, WEST = 3, BOTTOM = 4, NORTH = 5;
+
+      //draw east
+      m.translate(P, 0, 0);
+      drawSide(vertexConsumer, m, X, Y, Z, uvs[look[EAST]]);// this one has to be est or west side
+      //draw top
+      m.translate(N, P, 0);
+      drawSide(vertexConsumer, m, Y, Z, X, uvs[look[TOP]]); // TOP
+      //SOUTH
+      m.translate(0, N, P);
+      drawSide(vertexConsumer, m, Z, X, Y, uvs[look[SOUTH]]);
+      //WEST
+      m.translate(N, 0, N);
+      drawSide(vertexConsumer, m, 0, Z, Y, uvs[look[WEST]]);
+      //BOTTOM
+      m.translate(P, N, 0);
+      drawSide(vertexConsumer, m, 0, X, Z, uvs[look[BOTTOM]]);
+      //NORTH
+      m.translate(0, P, N);
+      drawSide(vertexConsumer, m, 0, Y, X, uvs[look[NORTH]]);
+    });
+
     poseStack.popPose();
   }
+
+//  private void renderOverlay(MultiBufferSource.BufferSource bufferSource, PoseStack poseStack, Vec3 cameraPos, BlockPos blockPos, Vec3 hitVec, int[] look) {
+//    double yDiff = hitVec.y - blockPos.getY();
+//    if (yDiff > PlayerClickBlockfaceUtil.HI && yDiff < PlayerClickBlockfaceUtil.LO) {
+//      //edge corner case
+//      return;
+//    }
+//    poseStack.pushPose();
+//    RenderType renderType = OverlayRenderType.overlayRenderer(id, overlayLocation);
+//    VertexConsumer vertexConsumer = bufferSource.getBuffer(renderType);
+//    poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
+//    poseStack.translate(blockPos.getX(), blockPos.getY(), blockPos.getZ());
+//    //P/N ONLY exist to prevent layer fighting/flashing, push it just outside ontop of the block, so 1 + this fract
+//    final float P = 1 / 256f, N = -1 / 256f;
+//    final int X = 1, Y = 2, Z = 4;
+//    //now draw the box
+//    int TOP = 1, EAST = 0, SOUTH = 2, WEST = 3, BOTTOM = 4, NORTH = 5;
+//    //draw east
+//    poseStack.translate(P, 0, 0);
+//    drawSide(vertexConsumer, poseStack.last().pose(), X, Y, Z, uvs[look[EAST]]);// this one has to be est or west side
+//    //draw top
+//    poseStack.translate(N, P, 0);
+//    drawSide(vertexConsumer, poseStack.last().pose(), Y, Z, X, uvs[look[TOP]]); // TOP
+//    //SOUTH
+//    poseStack.translate(0, N, P);
+//    drawSide(vertexConsumer, poseStack.last().pose(), Z, X, Y, uvs[look[SOUTH]]);
+//    //WEST
+//    poseStack.translate(N, 0, N);
+//    drawSide(vertexConsumer, poseStack.last().pose(), 0, Z, Y, uvs[look[WEST]]);
+//    //BOTTOM
+//    poseStack.translate(P, N, 0);
+//    drawSide(vertexConsumer, poseStack.last().pose(), 0, X, Z, uvs[look[BOTTOM]]);
+//    //NORTH
+//    poseStack.translate(0, P, N);
+//    drawSide(vertexConsumer, poseStack.last().pose(), 0, Y, X, uvs[look[NORTH]]);
+//    bufferSource.endBatch(renderType);
+//    poseStack.popPose();
+//  }
 
   public boolean shouldRender() {
     Player player = Minecraft.getInstance().player;

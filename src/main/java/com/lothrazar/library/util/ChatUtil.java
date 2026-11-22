@@ -49,7 +49,7 @@ public class ChatUtil {
       serverPlayer.sendSystemMessage(nameTextComponent, true);
     }
     else if (player.level().isClientSide()) {
-      Minecraft.getInstance().gui.setOverlayMessage(nameTextComponent, false);
+      Minecraft.getInstance().gui.hud.setOverlayMessage(nameTextComponent, false);
     }
   }
 

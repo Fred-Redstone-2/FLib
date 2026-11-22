@@ -1,11 +1,11 @@
 package com.lothrazar.library.util;
 
 import java.util.List;
-import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextColor;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.Containers;
@@ -19,7 +19,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.ItemLore;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.item.ItemResource;
 
 public class ItemStackUtil {
 
@@ -64,7 +65,7 @@ public class ItemStackUtil {
 
     List<Component> newLore = new java.util.ArrayList<>(loreDefault.lines());
 
-    newLore.add(Component.literal(lore).withStyle(ChatFormatting.getByName(color))); // TODO: color test
+    newLore.add(Component.literal(lore).withColor(TextColor.parseColor(color).getOrThrow())); // TODO: color test
     //then set overwrite
     crafting.set( DataComponents.LORE, new ItemLore(newLore));
 //    ChatFormatting fmt = ChatFormatting.getByName(color);
@@ -75,13 +76,13 @@ public class ItemStackUtil {
   }
 
 
-  public static int countEmptySlots(IItemHandler handler) {
+  public static int countEmptySlots(ResourceHandler<ItemResource> handler) {
     if (handler == null) {
       return 0;
     }
     int empty = 0;
-    for (int i = 0; i < handler.getSlots(); i++) {
-      if (handler.getStackInSlot(i).isEmpty()) {
+    for (int i = 0; i < handler.size(); i++) {
+      if (handler.getResource(i).isEmpty()) {
         empty++;
       }
     }
@@ -96,12 +97,12 @@ public class ItemStackUtil {
     return ItemStack.EMPTY;
   }
 
-  public static void dropAll(IItemHandler items, Level world, BlockPos pos) {
+  public static void dropAll(ResourceHandler<ItemResource> items, Level world, BlockPos pos) {
     if (items == null) {
       return;
     }
-    for (int i = 0; i < items.getSlots(); i++) {
-      Containers.dropItemStack(world, pos.getX(), pos.getY(), pos.getZ(), items.getStackInSlot(i));
+    for (int i = 0; i < items.size(); i++) {
+      Containers.dropItemStack(world, pos.getX(), pos.getY(), pos.getZ(), items.getResource(i).toStack());
     }
   }
 

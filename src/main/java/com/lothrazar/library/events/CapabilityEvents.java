@@ -3,8 +3,7 @@ package com.lothrazar.library.events;
 import com.lothrazar.library.FutureLibMod;
 import com.lothrazar.library.cap.player.PlayerCapProvider;
 import com.lothrazar.library.cap.player.PlayerCapabilityStorage;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.EntityTypes;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.common.NeoForge;
@@ -35,7 +34,7 @@ public class CapabilityEvents {
   public static void onRegisterCapabilities(RegisterCapabilitiesEvent event) {
     event.registerEntity(
         PlayerCapProvider.PLAYER_MANA_CAP,
-        EntityType.PLAYER,
+        EntityTypes.PLAYER,
         (entity, ctx) -> entity.getData(PlayerCapProvider.PLAYER_MANA.get()));
 
     FutureLibMod.LOGGER.info("RegisterCapabilitiesEvent success");

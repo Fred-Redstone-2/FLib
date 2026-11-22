@@ -10,7 +10,6 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.energy.IEnergyStorage;
 import net.neoforged.neoforge.transfer.energy.EnergyHandler;
 
 public abstract class ContainerFlib extends AbstractContainerMenu {
@@ -34,8 +33,7 @@ public abstract class ContainerFlib extends AbstractContainerMenu {
         EnergyHandler handler = tile.getLevel() != null
             ? tile.getLevel().getCapability(Capabilities.Energy.BLOCK, tile.getBlockPos(), tile.getBlockState(), tile, null)
             : null;
-        IEnergyStorage storage = handler == null ? null : IEnergyStorage.of(handler);
-        return storage != null ? storage.getEnergyStored() : 0;
+          return handler != null ? handler.getAmountAsInt() : 0;
       }
 
       @Override

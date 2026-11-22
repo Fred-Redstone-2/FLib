@@ -2,13 +2,14 @@ package com.lothrazar.library.data;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import com.lothrazar.library.mixin.FlyingAnimalMixin;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.TamableAnimal;
 import net.minecraft.world.entity.ambient.AmbientCreature;
 import net.minecraft.world.entity.animal.Animal;
-import net.minecraft.world.entity.animal.FlyingAnimal;
 import net.minecraft.world.entity.animal.fish.WaterAnimal;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
@@ -44,7 +45,7 @@ public enum EntityFilterType {
       break;
       case FLYING:
         // FlyingMob was removed; FlyingAnimal is now a plain marker interface, not an Entity subclass.
-        list.addAll(world.getEntitiesOfClass(LivingEntity.class, axisalignedbb, e -> e instanceof FlyingAnimal));
+        list.addAll(world.getEntitiesOfClass(LivingEntity.class, axisalignedbb, e -> ((FlyingAnimalMixin) e).flib$omnidirectionalAirMover()));
       break;
       case LIVING:
         list.addAll(world.getEntitiesOfClass(LivingEntity.class, axisalignedbb));

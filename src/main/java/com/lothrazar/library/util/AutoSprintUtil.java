@@ -57,7 +57,7 @@ public class AutoSprintUtil {
 
   public static void setAutorunState(Player player, boolean value) {
     player.getPersistentData().putBoolean(NBT, value);
-    Minecraft.getInstance().gui.setOverlayMessage(Component.translatable("autorun." + value), false);
+    Minecraft.getInstance().gui.hud.setOverlayMessage(Component.translatable("autorun." + value), false);
     player.setSprinting(value);
   }
 

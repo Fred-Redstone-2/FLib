@@ -28,11 +28,7 @@ import java.util.UUID;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.network.Connection;
-import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
@@ -41,8 +37,10 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
-import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.neoforge.items.ItemStackHandler;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.item.ItemResource;
+import net.neoforged.neoforge.transfer.item.ItemStacksResourceHandler;
+import net.neoforged.neoforge.transfer.transaction.Transaction;
 
 public class FakePlayerUtil {
 
@@ -83,11 +81,11 @@ public class FakePlayerUtil {
     return fakePlayer;
   }
 
-  public static void tryEquipItem(IItemHandler inv, WeakReference<FakePlayer> fp, int slot, InteractionHand hand) {
+  public static void tryEquipItem(ResourceHandler<ItemResource> inv, WeakReference<FakePlayer> fp, int slot, InteractionHand hand) {
     if (fp == null || inv == null) {
       return;
     }
-    ItemStack maybeTool = inv.getStackInSlot(0);
+    ItemStack maybeTool = inv.getResource(0).toStack();
     if (!maybeTool.isEmpty() && maybeTool.getCount() <= 0) {
       maybeTool = ItemStack.EMPTY;
     }
@@ -113,13 +111,14 @@ public class FakePlayerUtil {
     return result;
   }
 
-  public static void syncEquippedItem(ItemStackHandler inv, WeakReference<FakePlayer> fp, int slot, InteractionHand hand) {
+  public static void syncEquippedItem(ItemStacksResourceHandler inv, WeakReference<FakePlayer> fp, int slot, InteractionHand hand) {
     if (fp == null) {
       return;
     }
-    inv.setStackInSlot(slot, ItemStack.EMPTY);
+    inv.set(slot, ItemResource.EMPTY, 1);
     //    inv.extractItem(slot, 64, false); //delete and overwrite
-    inv.insertItem(slot, fp.get().getItemInHand(hand), false);
+    ItemStack itemInHand = fp.get().getItemInHand(hand);
+    inv.set(slot, ItemResource.of(itemInHand), itemInHand.count());
   }
 
   public static void tryEquipItem(ItemStack item, WeakReference<FakePlayer> fp, InteractionHand hand) {

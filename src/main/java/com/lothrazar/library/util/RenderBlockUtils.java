@@ -2,8 +2,13 @@ package com.lothrazar.library.util;
 
 import java.awt.Color;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
+import net.minecraft.client.Camera;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.SubmitNodeStorage;
 import org.joml.Matrix4f;
 import com.lothrazar.library.data.Model3D;
 import com.lothrazar.library.render.RenderResizableCuboid;
@@ -11,11 +16,9 @@ import com.lothrazar.library.render.type.FakeBlockRenderTypes;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.QuadInstance;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.color.block.BlockTintSource;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.client.renderer.block.BlockStateModelSet;
 import net.minecraft.client.renderer.block.FluidModel;
@@ -198,54 +201,120 @@ public class RenderBlockUtils {
    * used by cyclic:light_camo
    * 
    */
-  public static void renderAsBlock(Level world, final BlockPos centerPos, final List<BlockPos> shape, PoseStack matrix, BlockState renderBlockState, float alpha, float scale) {
+  public static void renderAsBlock(Level world, final BlockPos centerPos,
+                                   final List<BlockPos> shape, PoseStack matrix, BlockState renderBlockState,
+                                   float alpha, float scale) {
     if (renderBlockState.getRenderShape() != RenderShape.MODEL) {
       return;
     }
     Minecraft mc = Minecraft.getInstance();
-    MultiBufferSource.BufferSource buffer = mc.renderBuffers().bufferSource();
-    VertexConsumer builder = buffer.getBuffer(FakeBlockRenderTypes.FAKE_BLOCK);
     BlockStateModelSet modelSet = mc.getModelManager().getBlockStateModelSet();
     BlockStateModel model = modelSet.get(renderBlockState);
     BlockAndTintGetter tintGetter = world instanceof BlockAndTintGetter batg ? batg : BlockAndTintGetter.EMPTY;
     BlockTintSource tintSource = mc.getBlockColors().getTintSource(renderBlockState, 0);
     RandomSource random = world.getRandom();
-    int combinedLights = 15728640;
-    int combinedOverlay = OverlayTexture.NO_OVERLAY;
+    final int combinedLights = 15728640;
+    final int combinedOverlay = OverlayTexture.NO_OVERLAY;
     List<BlockStateModelPart> parts = new ArrayList<>();
+
     matrix.pushPose();
     matrix.translate(-centerPos.getX(), -centerPos.getY(), -centerPos.getZ());
     for (BlockPos coordinate : shape) {
       if (coordinate == null) {
         continue;
       }
+      // Calcul immédiat de tout ce qui dépend du monde
+      int tintColor = tintSource == null ? -1 : tintSource.colorInWorld(renderBlockState, tintGetter, coordinate);
+      final float red = ARGB.red(tintColor) / 255.0F;
+      final float green = ARGB.green(tintColor) / 255.0F;
+      final float blue = ARGB.blue(tintColor) / 255.0F;
+
+      model.collectParts(tintGetter, coordinate, renderBlockState, random, parts);
+      final List<List<BakedQuad>> quadLists = new ArrayList<>();
+      for (BlockStateModelPart part : parts) {
+        for (Direction direction : Direction.values()) {
+          List<BakedQuad> quads = part.getQuads(direction);
+          if (!quads.isEmpty()) {
+            quadLists.add(quads);
+          }
+        }
+        List<BakedQuad> unculledQuads = part.getQuads(null);
+        if (!unculledQuads.isEmpty()) {
+          quadLists.add(unculledQuads);
+        }
+      }
+      parts.clear();
+      if (quadLists.isEmpty()) {
+        continue;
+      }
+
       matrix.pushPose();
       matrix.translate(coordinate.getX(), coordinate.getY(), coordinate.getZ());
       //shrink it up
       matrix.translate(-0.0005f, -0.0005f, -0.0005f);
       matrix.scale(scale, scale, scale);
-      int tintColor = tintSource == null ? -1 : tintSource.colorInWorld(renderBlockState, tintGetter, coordinate);
-      float red = ARGB.red(tintColor) / 255.0F;
-      float green = ARGB.green(tintColor) / 255.0F;
-      float blue = ARGB.blue(tintColor) / 255.0F;
-      model.collectParts(tintGetter, coordinate, renderBlockState, random, parts);
-      for (BlockStateModelPart part : parts) {
-        for (Direction direction : Direction.values()) {
-          List<BakedQuad> quads = part.getQuads(direction);
-          if (!quads.isEmpty()) {
-            RenderBlockUtils.renderModelBrightnessColorQuads(matrix.last(), builder, red, green, blue, alpha, quads, combinedLights, combinedOverlay);
-          }
+
+      // La pose est capturée ici, avant le popPose
+      SubmitNodeCollector collector = new SubmitNodeStorage();
+      collector.submitCustomGeometry(matrix, FakeBlockRenderTypes.FAKE_BLOCK, (pose, builder) -> {
+        for (List<BakedQuad> quads : quadLists) {
+          RenderBlockUtils.renderModelBrightnessColorQuads(pose, builder, red, green, blue, alpha, quads,
+                  combinedLights, combinedOverlay);
         }
-        List<BakedQuad> unculledQuads = part.getQuads(null);
-        if (!unculledQuads.isEmpty()) {
-          RenderBlockUtils.renderModelBrightnessColorQuads(matrix.last(), builder, red, green, blue, alpha, unculledQuads, combinedLights, combinedOverlay);
-        }
-      }
-      parts.clear();
+      });
       matrix.popPose();
     }
     matrix.popPose();
   }
+
+//  public static void renderAsBlock(Level world, final BlockPos centerPos, final List<BlockPos> shape, PoseStack matrix, BlockState renderBlockState, float alpha, float scale) {
+//    if (renderBlockState.getRenderShape() != RenderShape.MODEL) {
+//      return;
+//    }
+//    Minecraft mc = Minecraft.getInstance();
+//    MultiBufferSource.BufferSource buffer = mc.renderBuffers().bufferSource();
+//    VertexConsumer builder = buffer.getBuffer(FakeBlockRenderTypes.FAKE_BLOCK);
+//    BlockStateModelSet modelSet = mc.getModelManager().getBlockStateModelSet();
+//    BlockStateModel model = modelSet.get(renderBlockState);
+//    BlockAndTintGetter tintGetter = world instanceof BlockAndTintGetter batg ? batg : BlockAndTintGetter.EMPTY;
+//    BlockTintSource tintSource = mc.getBlockColors().getTintSource(renderBlockState, 0);
+//    RandomSource random = world.getRandom();
+//    int combinedLights = 15728640;
+//    int combinedOverlay = OverlayTexture.NO_OVERLAY;
+//    List<BlockStateModelPart> parts = new ArrayList<>();
+//    matrix.pushPose();
+//    matrix.translate(-centerPos.getX(), -centerPos.getY(), -centerPos.getZ());
+//    for (BlockPos coordinate : shape) {
+//      if (coordinate == null) {
+//        continue;
+//      }
+//      matrix.pushPose();
+//      matrix.translate(coordinate.getX(), coordinate.getY(), coordinate.getZ());
+//      //shrink it up
+//      matrix.translate(-0.0005f, -0.0005f, -0.0005f);
+//      matrix.scale(scale, scale, scale);
+//      int tintColor = tintSource == null ? -1 : tintSource.colorInWorld(renderBlockState, tintGetter, coordinate);
+//      float red = ARGB.red(tintColor) / 255.0F;
+//      float green = ARGB.green(tintColor) / 255.0F;
+//      float blue = ARGB.blue(tintColor) / 255.0F;
+//      model.collectParts(tintGetter, coordinate, renderBlockState, random, parts);
+//      for (BlockStateModelPart part : parts) {
+//        for (Direction direction : Direction.values()) {
+//          List<BakedQuad> quads = part.getQuads(direction);
+//          if (!quads.isEmpty()) {
+//            RenderBlockUtils.renderModelBrightnessColorQuads(matrix.last(), builder, red, green, blue, alpha, quads, combinedLights, combinedOverlay);
+//          }
+//        }
+//        List<BakedQuad> unculledQuads = part.getQuads(null);
+//        if (!unculledQuads.isEmpty()) {
+//          RenderBlockUtils.renderModelBrightnessColorQuads(matrix.last(), builder, red, green, blue, alpha, unculledQuads, combinedLights, combinedOverlay);
+//        }
+//      }
+//      parts.clear();
+//      matrix.popPose();
+//    }
+//    matrix.popPose();
+//  }
 
   public static void renderOutline(BlockPos view, BlockPos pos, PoseStack matrix, float scale, Color color) {
     List<BlockPos> coords = new ArrayList<>();
@@ -262,9 +331,18 @@ public class RenderBlockUtils {
    * 
    * View can be tile entity position, or player pos depending on context mc.gameRenderer.getMainCamera().getPosition();
    */
-  public static void renderOutline(BlockPos view, List<BlockPos> coords, PoseStack matrix, float scale, Color color) {
-    final Minecraft mc = Minecraft.getInstance();
-    MultiBufferSource.BufferSource buffer = mc.renderBuffers().bufferSource();
+  public static void renderOutline(BlockPos view, List<BlockPos> coords,
+                                   PoseStack matrix, float scale, Color color) {
+    SubmitNodeCollector collector = new SubmitNodeStorage();
+
+    // Copie : le dessin est différé, la liste de l'appelant pourrait changer d'ici là
+    final List<BlockPos> cubes = new ArrayList<>(coords.size());
+    for (BlockPos e : coords) {
+      if (e != null) {
+        cubes.add(e.immutable());
+      }
+    }
+
     matrix.pushPose();
     //This helper is for TESRs (BlockEntityRenderers). The TESR's PoseStack is translated by
     //vanilla so its origin = the tile's block position. The caller passes `view = tilePos`,
@@ -272,24 +350,51 @@ public class RenderBlockUtils {
     //world coordinate. Do NOT call this from RenderLevelStageEvent — that pose is at the
     //camera origin and subtracting the camera position double-shifts everything off-screen.
     matrix.translate(-view.getX(), -view.getY(), -view.getZ());
-    VertexConsumer builder;
-    builder = buffer.getBuffer(FakeBlockRenderTypes.SOLID_COLOUR);
-    for (BlockPos e : coords) {
-      if (e == null) {
-        continue;
+
+    final float ctr = (1 - scale) / 2;
+    collector.submitCustomGeometry(matrix, FakeBlockRenderTypes.SOLID_COLOUR, (pose, builder) -> {
+      for (BlockPos e : cubes) {
+        // Équivalent du pushPose/translate/scale/mulPose par cube, sur une copie locale
+        Matrix4f m = new Matrix4f(pose.pose())
+                .translate(e.getX() + ctr, e.getY() + ctr, e.getZ() + ctr)
+                .translate(-0.005f, -0.005f, -0.005f)
+                .scale(scale, scale, scale)
+                .rotateY((float) Math.toRadians(-90.0));
+        RenderBlockUtils.renderCube(m, builder, e, color, .125F);
       }
-      matrix.pushPose();
-      float ctr = (1 - scale) / 2;
-      matrix.translate(e.getX() + ctr, e.getY() + ctr, e.getZ() + ctr);
-      matrix.translate(-0.005f, -0.005f, -0.005f);
-      matrix.scale(scale, scale, scale);
-      matrix.mulPose(Axis.YP.rotationDegrees(-90.0F));
-      RenderBlockUtils.renderCube(matrix.last().pose(), builder, e, color, .125F);
-      matrix.popPose();
-    }
+    });
+
     matrix.popPose();
-    buffer.endBatch(FakeBlockRenderTypes.SOLID_COLOUR);
   }
+
+//  public static void renderOutline(BlockPos view, List<BlockPos> coords, PoseStack matrix, float scale, Color color) {
+//    final Minecraft mc = Minecraft.getInstance();
+//    MultiBufferSource.BufferSource buffer = mc.renderBuffers().bufferSource();
+//    matrix.pushPose();
+//    //This helper is for TESRs (BlockEntityRenderers). The TESR's PoseStack is translated by
+//    //vanilla so its origin = the tile's block position. The caller passes `view = tilePos`,
+//    //and we undo that translation here so the loop below can position cubes by absolute
+//    //world coordinate. Do NOT call this from RenderLevelStageEvent — that pose is at the
+//    //camera origin and subtracting the camera position double-shifts everything off-screen.
+//    matrix.translate(-view.getX(), -view.getY(), -view.getZ());
+//    VertexConsumer builder;
+//    builder = buffer.getBuffer(FakeBlockRenderTypes.SOLID_COLOUR);
+//    for (BlockPos e : coords) {
+//      if (e == null) {
+//        continue;
+//      }
+//      matrix.pushPose();
+//      float ctr = (1 - scale) / 2;
+//      matrix.translate(e.getX() + ctr, e.getY() + ctr, e.getZ() + ctr);
+//      matrix.translate(-0.005f, -0.005f, -0.005f);
+//      matrix.scale(scale, scale, scale);
+//      matrix.mulPose(Axis.YP.rotationDegrees(-90.0F));
+//      RenderBlockUtils.renderCube(matrix.last().pose(), builder, e, color, .125F);
+//      matrix.popPose();
+//    }
+//    matrix.popPose();
+//    buffer.endBatch(FakeBlockRenderTypes.SOLID_COLOUR);
+//  }
 
   /**
    * Create your own PoseStack and view perspective and use the method that does not depend on forge events
@@ -301,7 +406,7 @@ public class RenderBlockUtils {
   @Deprecated
   public static void renderColourCubes(RenderLevelStageEvent evt, Map<BlockPos, Color> coords, float alpha) {
     PoseStack matrix = evt.getPoseStack();
-    Vec3 view = Minecraft.getInstance().gameRenderer.getMainCamera().position();
+    Vec3 view = Minecraft.getInstance().gameRenderer.mainCamera().position();
     float scale = 1.01F;
     renderColourCubes(matrix, view, coords, scale, alpha);
   }
@@ -309,13 +414,17 @@ public class RenderBlockUtils {
   /**
    * for ITEMS held by the PLAYER rendering cubes in world
    */
-  public static void renderColourCubes(PoseStack matrix, Vec3 view, Map<BlockPos, Color> coords, float scale, float alpha) {
+  public static void renderColourCubes(PoseStack matrix, Vec3 view,
+                                       Map<BlockPos, Color> coords, float scale, float alpha) {
+    SubmitNodeCollector collector = new SubmitNodeStorage();
+
     LocalPlayer player = Minecraft.getInstance().player;
     if (player == null) {
       return;
     }
-    final Minecraft mc = Minecraft.getInstance();
-    MultiBufferSource.BufferSource buffer = mc.renderBuffers().bufferSource();
+    // Copie : le dessin est différé, la map de l'appelant pourrait changer d'ici là
+    final Map<BlockPos, Color> cubes = new LinkedHashMap<>(coords);
+
     matrix.pushPose();
     // 26.1: confirmed by testing that neither this event's PoseStack nor the GPU's
     // ModelViewMat (DynamicTransforms UBO) supply the camera's view transform for this custom
@@ -323,21 +432,54 @@ public class RenderBlockUtils {
     // adjustment) rendered nothing at all, since the vertices land nowhere near the projection
     // matrix's expected range. So we build the camera transform ourselves: rotate first (ends up
     // applied AFTER translation to each vertex, i.e. rotate(world - camera)), then translate.
-    matrix.mulPose(Minecraft.getInstance().gameRenderer.getMainCamera().getViewRotationMatrix(new Matrix4f()));
+    matrix.mulPose(Minecraft.getInstance().gameRenderer.mainCamera().getViewRotationMatrix(new Matrix4f()));
     matrix.translate(-view.x(), -view.y(), -view.z());
-    VertexConsumer builder = buffer.getBuffer(FakeBlockRenderTypes.TRANSPARENT_COLOUR);
-    for (BlockPos posCurr : coords.keySet()) {
-      matrix.pushPose();
-      matrix.translate(posCurr.getX(), posCurr.getY(), posCurr.getZ());
-      matrix.translate(-0.005f, -0.005f, -0.005f);
-      matrix.scale(scale, scale, scale);
-      matrix.mulPose(Axis.YP.rotationDegrees(-90.0F));
-      RenderBlockUtils.renderCube(matrix.last().pose(), builder, posCurr, coords.get(posCurr), alpha);
-      matrix.popPose();
-    }
+
+    collector.submitCustomGeometry(matrix, FakeBlockRenderTypes.TRANSPARENT_COLOUR, (pose, builder) -> {
+      for (Map.Entry<BlockPos, Color> entry : cubes.entrySet()) {
+        BlockPos posCurr = entry.getKey();
+        // Équivalent du pushPose/translate/scale/mulPose par bloc, sur une copie locale
+        Matrix4f m = new Matrix4f(pose.pose())
+                .translate(posCurr.getX(), posCurr.getY(), posCurr.getZ())
+                .translate(-0.005f, -0.005f, -0.005f)
+                .scale(scale, scale, scale)
+                .rotateY((float) Math.toRadians(-90.0));
+        RenderBlockUtils.renderCube(m, builder, posCurr, entry.getValue(), alpha);
+      }
+    });
+
     matrix.popPose();
-    buffer.endBatch(FakeBlockRenderTypes.TRANSPARENT_COLOUR);
   }
+
+//  public static void renderColourCubes(PoseStack matrix, Vec3 view, Map<BlockPos, Color> coords, float scale, float alpha) {
+//    LocalPlayer player = Minecraft.getInstance().player;
+//    if (player == null) {
+//      return;
+//    }
+//    final Minecraft mc = Minecraft.getInstance();
+//    MultiBufferSource.BufferSource buffer = mc.renderBuffers().bufferSource();
+//    matrix.pushPose();
+//    // 26.1: confirmed by testing that neither this event's PoseStack nor the GPU's
+//    // ModelViewMat (DynamicTransforms UBO) supply the camera's view transform for this custom
+//    // pipeline - removing the camera-subtract entirely (passing world-absolute coords with no
+//    // adjustment) rendered nothing at all, since the vertices land nowhere near the projection
+//    // matrix's expected range. So we build the camera transform ourselves: rotate first (ends up
+//    // applied AFTER translation to each vertex, i.e. rotate(world - camera)), then translate.
+//    matrix.mulPose(Minecraft.getInstance().gameRenderer.getMainCamera().getViewRotationMatrix(new Matrix4f()));
+//    matrix.translate(-view.x(), -view.y(), -view.z());
+//    VertexConsumer builder = buffer.getBuffer(FakeBlockRenderTypes.TRANSPARENT_COLOUR);
+//    for (BlockPos posCurr : coords.keySet()) {
+//      matrix.pushPose();
+//      matrix.translate(posCurr.getX(), posCurr.getY(), posCurr.getZ());
+//      matrix.translate(-0.005f, -0.005f, -0.005f);
+//      matrix.scale(scale, scale, scale);
+//      matrix.mulPose(Axis.YP.rotationDegrees(-90.0F));
+//      RenderBlockUtils.renderCube(matrix.last().pose(), builder, posCurr, coords.get(posCurr), alpha);
+//      matrix.popPose();
+//    }
+//    matrix.popPose();
+//    buffer.endBatch(FakeBlockRenderTypes.TRANSPARENT_COLOUR);
+//  }
 
   /**
    * 2-arg overload for use from {@link RenderLevelStageEvent} (e.g. OutlineRenderer). Confirmed by
@@ -351,12 +493,11 @@ public class RenderBlockUtils {
    * mulPose(camera.getViewRotationMatrix(...)) call in the 6-arg overload below).
    */
   public static void createBox(PoseStack poseStack, BlockPos pos) {
-    createBox(poseStack, pos, Minecraft.getInstance().gameRenderer.getMainCamera().position());
+    createBox(poseStack, pos, Minecraft.getInstance().gameRenderer.mainCamera().position());
   }
   public static void createBox(PoseStack poseStack, BlockPos pos, Vec3 poseOriginInWorld) {
     poseStack.pushPose();
-    Minecraft mc = Minecraft.getInstance();
-    createBox(mc.renderBuffers().bufferSource(), poseOriginInWorld, poseStack, pos.getX(), pos.getY(), pos.getZ(), 1.0F);
+    createBox(new SubmitNodeStorage(), poseOriginInWorld, poseStack, pos.getX(), pos.getY(), pos.getZ(), 1.0F);
     poseStack.popPose();
   }
 
@@ -366,49 +507,98 @@ public class RenderBlockUtils {
    *   absolute world coords for x/y/z. For TESRs (BlockEntityRenderer): PoseStack origin is at
    *   the tile - pass the tile's pos instead so the TESR's vanilla translation gets undone.
    */
-  public static void createBox(MultiBufferSource.BufferSource bufferSource, Vec3 poseOriginInWorld, PoseStack poseStack, float x, float y, float z, float offset) {
+  public static void createBox(SubmitNodeCollector collector, Vec3 poseOriginInWorld, PoseStack poseStack,
+                               float x, float y, float z, float offset) {
     //rainbow magic
     float[] color = getRandomColour();
     // distance-clamp far positions (use the real camera, not the pose-origin offset)
-    Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().position();
+    // getMainCamera() -> mainCamera() en 26.2
+    Camera cam = Minecraft.getInstance().gameRenderer.mainCamera();
+    Vec3 camera = cam.position();
     Vec3 vec = new Vec3(x, y, z).subtract(camera);
-    if (vec.distanceTo(Vec3.ZERO) > 200d) { // could be 300
+    if (vec.length() > 200d) { // could be 300
       vec = vec.normalize().scale(200d);
-      x += vec.x;
-      y += vec.y;
-      z += vec.z;
+      x += (float) vec.x;
+      y += (float) vec.y;
+      z += (float) vec.z;
     }
-    VertexConsumer vertexConsumer = bufferSource.getBuffer(FakeBlockRenderTypes.TOMB_LINES);
-    // 26.1: confirmed by testing that neither this event's PoseStack nor the GPU's
-    // ModelViewMat (DynamicTransforms UBO) supply the camera's view transform for this custom
-    // pipeline - so we build it ourselves: rotate first (so it ends up applied AFTER translation
-    // to each vertex, i.e. rotate(world - camera)), then translate. Call order matters: PoseStack
-    // composes each new op onto the right of the current matrix, so the vertex "sees" the
-    // rightmost/last-called op first.
-    poseStack.mulPose(Minecraft.getInstance().gameRenderer.getMainCamera().getViewRotationMatrix(new Matrix4f()));
+
+    // Copies finales pour la lambda
+    final float fx = x, fy = y, fz = z;
+    final float r = color[0], g = color[1], b = color[2];
+
+    poseStack.pushPose();
+    // (garde ton commentaire 26.1 sur l'ordre rotate/translate ici si tu veux)
+    poseStack.mulPose(cam.getViewRotationMatrix(new Matrix4f()));
     poseStack.translate(-poseOriginInWorld.x, -poseOriginInWorld.y, -poseOriginInWorld.z);
-    PoseStack.Pose pose = poseStack.last();
-    float r = color[0], g = color[1], b = color[2];
-    //12 edges of the cube. The lines shader uses the vertex NORMAL as the line direction
-    //(transformed through the pose's normal matrix) to compute screen-space widening —
-    //without it the line collapses to ~0px and is invisible.
-    //bottom 4 edges
-    line(vertexConsumer, pose, x, y, z,                 x + offset, y, z,                 r, g, b, 1f, 0f, 0f);
-    line(vertexConsumer, pose, x + offset, y, z,        x + offset, y, z + offset,        r, g, b, 0f, 0f, 1f);
-    line(vertexConsumer, pose, x + offset, y, z + offset, x, y, z + offset,               r, g, b, -1f, 0f, 0f);
-    line(vertexConsumer, pose, x, y, z + offset,        x, y, z,                          r, g, b, 0f, 0f, -1f);
-    //top 4 edges
-    line(vertexConsumer, pose, x, y + offset, z,        x + offset, y + offset, z,        r, g, b, 1f, 0f, 0f);
-    line(vertexConsumer, pose, x + offset, y + offset, z, x + offset, y + offset, z + offset, r, g, b, 0f, 0f, 1f);
-    line(vertexConsumer, pose, x + offset, y + offset, z + offset, x, y + offset, z + offset, r, g, b, -1f, 0f, 0f);
-    line(vertexConsumer, pose, x, y + offset, z + offset, x, y + offset, z,                r, g, b, 0f, 0f, -1f);
-    //4 vertical edges
-    line(vertexConsumer, pose, x, y, z,                  x, y + offset, z,                 r, g, b, 0f, 1f, 0f);
-    line(vertexConsumer, pose, x + offset, y, z,         x + offset, y + offset, z,        r, g, b, 0f, 1f, 0f);
-    line(vertexConsumer, pose, x + offset, y, z + offset, x + offset, y + offset, z + offset, r, g, b, 0f, 1f, 0f);
-    line(vertexConsumer, pose, x, y, z + offset,         x, y + offset, z + offset,         r, g, b, 0f, 1f, 0f);
-    bufferSource.endBatch(FakeBlockRenderTypes.TOMB_LINES);
+
+    collector.submitCustomGeometry(poseStack, FakeBlockRenderTypes.TOMB_LINES, (pose, vc) -> {
+      //12 edges of the cube. The lines shader uses the vertex NORMAL as the line direction
+      //(transformed through the pose's normal matrix) to compute screen-space widening —
+      //without it the line collapses to ~0px and is invisible.
+      //bottom 4 edges
+      line(vc, pose, fx, fy, fz,                      fx + offset, fy, fz,                      r, g, b, 1f, 0f, 0f);
+      line(vc, pose, fx + offset, fy, fz,             fx + offset, fy, fz + offset,             r, g, b, 0f, 0f, 1f);
+      line(vc, pose, fx + offset, fy, fz + offset,    fx, fy, fz + offset,                      r, g, b, -1f, 0f, 0f);
+      line(vc, pose, fx, fy, fz + offset,             fx, fy, fz,                               r, g, b, 0f, 0f, -1f);
+      //top 4 edges
+      line(vc, pose, fx, fy + offset, fz,             fx + offset, fy + offset, fz,             r, g, b, 1f, 0f, 0f);
+      line(vc, pose, fx + offset, fy + offset, fz,    fx + offset, fy + offset, fz + offset,    r, g, b, 0f, 0f, 1f);
+      line(vc, pose, fx + offset, fy + offset, fz + offset, fx, fy + offset, fz + offset,       r, g, b, -1f, 0f, 0f);
+      line(vc, pose, fx, fy + offset, fz + offset,    fx, fy + offset, fz,                      r, g, b, 0f, 0f, -1f);
+      //4 vertical edges
+      line(vc, pose, fx, fy, fz,                      fx, fy + offset, fz,                      r, g, b, 0f, 1f, 0f);
+      line(vc, pose, fx + offset, fy, fz,             fx + offset, fy + offset, fz,             r, g, b, 0f, 1f, 0f);
+      line(vc, pose, fx + offset, fy, fz + offset,    fx + offset, fy + offset, fz + offset,    r, g, b, 0f, 1f, 0f);
+      line(vc, pose, fx, fy, fz + offset,             fx, fy + offset, fz + offset,             r, g, b, 0f, 1f, 0f);
+    });
+
+    poseStack.popPose();
   }
+
+//  public static void createBox(MultiBufferSource.BufferSource bufferSource, Vec3 poseOriginInWorld, PoseStack poseStack, float x, float y, float z, float offset) {
+//    //rainbow magic
+//    float[] color = getRandomColour();
+//    // distance-clamp far positions (use the real camera, not the pose-origin offset)
+//    Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().position();
+//    Vec3 vec = new Vec3(x, y, z).subtract(camera);
+//    if (vec.distanceTo(Vec3.ZERO) > 200d) { // could be 300
+//      vec = vec.normalize().scale(200d);
+//      x += vec.x;
+//      y += vec.y;
+//      z += vec.z;
+//    }
+//    VertexConsumer vertexConsumer = bufferSource.getBuffer(FakeBlockRenderTypes.TOMB_LINES);
+//    // 26.1: confirmed by testing that neither this event's PoseStack nor the GPU's
+//    // ModelViewMat (DynamicTransforms UBO) supply the camera's view transform for this custom
+//    // pipeline - so we build it ourselves: rotate first (so it ends up applied AFTER translation
+//    // to each vertex, i.e. rotate(world - camera)), then translate. Call order matters: PoseStack
+//    // composes each new op onto the right of the current matrix, so the vertex "sees" the
+//    // rightmost/last-called op first.
+//    poseStack.mulPose(Minecraft.getInstance().gameRenderer.getMainCamera().getViewRotationMatrix(new Matrix4f()));
+//    poseStack.translate(-poseOriginInWorld.x, -poseOriginInWorld.y, -poseOriginInWorld.z);
+//    PoseStack.Pose pose = poseStack.last();
+//    float r = color[0], g = color[1], b = color[2];
+//    //12 edges of the cube. The lines shader uses the vertex NORMAL as the line direction
+//    //(transformed through the pose's normal matrix) to compute screen-space widening —
+//    //without it the line collapses to ~0px and is invisible.
+//    //bottom 4 edges
+//    line(vertexConsumer, pose, x, y, z,                 x + offset, y, z,                 r, g, b, 1f, 0f, 0f);
+//    line(vertexConsumer, pose, x + offset, y, z,        x + offset, y, z + offset,        r, g, b, 0f, 0f, 1f);
+//    line(vertexConsumer, pose, x + offset, y, z + offset, x, y, z + offset,               r, g, b, -1f, 0f, 0f);
+//    line(vertexConsumer, pose, x, y, z + offset,        x, y, z,                          r, g, b, 0f, 0f, -1f);
+//    //top 4 edges
+//    line(vertexConsumer, pose, x, y + offset, z,        x + offset, y + offset, z,        r, g, b, 1f, 0f, 0f);
+//    line(vertexConsumer, pose, x + offset, y + offset, z, x + offset, y + offset, z + offset, r, g, b, 0f, 0f, 1f);
+//    line(vertexConsumer, pose, x + offset, y + offset, z + offset, x, y + offset, z + offset, r, g, b, -1f, 0f, 0f);
+//    line(vertexConsumer, pose, x, y + offset, z + offset, x, y + offset, z,                r, g, b, 0f, 0f, -1f);
+//    //4 vertical edges
+//    line(vertexConsumer, pose, x, y, z,                  x, y + offset, z,                 r, g, b, 0f, 1f, 0f);
+//    line(vertexConsumer, pose, x + offset, y, z,         x + offset, y + offset, z,        r, g, b, 0f, 1f, 0f);
+//    line(vertexConsumer, pose, x + offset, y, z + offset, x + offset, y + offset, z + offset, r, g, b, 0f, 1f, 0f);
+//    line(vertexConsumer, pose, x, y, z + offset,         x, y + offset, z + offset,         r, g, b, 0f, 1f, 0f);
+//    bufferSource.endBatch(FakeBlockRenderTypes.TOMB_LINES);
+//  }
 
   private static final float LINE_WIDTH = 2.5F;
 

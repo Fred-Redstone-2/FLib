@@ -3,12 +3,15 @@ package com.lothrazar.library.render.type;
 import java.util.Optional;
 import com.lothrazar.library.FutureLibMod;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
+import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.rendertype.OutputTarget;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.client.event.RegisterRenderPipelinesEvent;
+
+import static com.lothrazar.library.render.type.Samplers.SAMPLER_0;
 
 /**
  * Copyright (c) 2015 Vorquel (modified by Lothrazar 2016-2023)
@@ -34,11 +37,12 @@ import net.neoforged.neoforge.client.event.RegisterRenderPipelinesEvent;
  */
 public class OverlayRenderType {
 
-  private static final RenderPipeline OVERLAY_PIPELINE = RenderPipeline.builder(RenderPipelines.TEXT_SNIPPET, RenderPipelines.FOG_SNIPPET)
+  private static final RenderPipeline OVERLAY_PIPELINE = RenderPipeline.builder(RenderPipelines.TEXT_SNIPPET)
+      .withBindGroupLayout(BindGroupLayouts.FOG)
+      .withBindGroupLayout(SAMPLER_0.sampler())
       .withLocation(Identifier.fromNamespaceAndPath(FutureLibMod.MODID, "pipeline/overlay"))
       .withVertexShader("core/rendertype_text")
       .withFragmentShader("core/rendertype_text")
-      .withSampler("Sampler0")
       .withCull(false)
       .withDepthStencilState(Optional.empty())
       .build();

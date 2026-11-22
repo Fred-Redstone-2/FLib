@@ -2,13 +2,11 @@ package com.lothrazar.library.render.type;
 
 import java.util.Optional;
 import com.lothrazar.library.FutureLibMod;
-import com.mojang.blaze3d.pipeline.BlendFunction;
-import com.mojang.blaze3d.pipeline.ColorTargetState;
-import com.mojang.blaze3d.pipeline.DepthStencilState;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.PrimitiveTopology;
+import com.mojang.blaze3d.pipeline.*;
 import com.mojang.blaze3d.platform.CompareOp;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.rendertype.LayeringTransform;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
@@ -16,6 +14,8 @@ import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.client.event.RegisterRenderPipelinesEvent;
+
+import static com.lothrazar.library.render.type.Samplers.SAMPLER_0;
 
 /**
  * Render Types with help from direwolf20 MIT open source project https://github.com/Direwolf20-MC/BuildingGadgets/blob/1.15/LICENSE.md
@@ -30,11 +30,12 @@ public class FakeBlockRenderTypes {
 
   public static final Identifier BEAM = Identifier.fromNamespaceAndPath(FutureLibMod.MODID, "textures/effect/beam.png");
 
-  private static final RenderPipeline BEAM_PIPELINE = RenderPipeline.builder(RenderPipelines.TEXT_SNIPPET, RenderPipelines.FOG_SNIPPET)
+  private static final RenderPipeline BEAM_PIPELINE = RenderPipeline.builder(RenderPipelines.TEXT_SNIPPET)
+      .withBindGroupLayout(BindGroupLayouts.FOG)
+      .withBindGroupLayout(SAMPLER_0.sampler())
       .withLocation(Identifier.fromNamespaceAndPath(FutureLibMod.MODID, "pipeline/fakeblock_beam"))
       .withVertexShader("core/rendertype_text")
       .withFragmentShader("core/rendertype_text")
-      .withSampler("Sampler0")
       .withCull(false)
       .withDepthStencilState(Optional.empty())
       .build();
@@ -45,11 +46,12 @@ public class FakeBlockRenderTypes {
           .setLayeringTransform(LayeringTransform.VIEW_OFFSET_Z_LAYERING)
           .createRenderSetup());
 
-  private static final RenderPipeline FAKE_BLOCK_PIPELINE = RenderPipeline.builder(RenderPipelines.TEXT_SNIPPET, RenderPipelines.FOG_SNIPPET)
+  private static final RenderPipeline FAKE_BLOCK_PIPELINE = RenderPipeline.builder(RenderPipelines.TEXT_SNIPPET)
+      .withBindGroupLayout(BindGroupLayouts.FOG)
+      .withBindGroupLayout(SAMPLER_0.sampler())
       .withLocation(Identifier.fromNamespaceAndPath(FutureLibMod.MODID, "pipeline/fakeblock"))
       .withVertexShader("core/rendertype_text")
       .withFragmentShader("core/rendertype_text")
-      .withSampler("Sampler0")
       .withColorTargetState(new ColorTargetState(BlendFunction.ADDITIVE))
       .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, true))
       .build();
@@ -67,7 +69,8 @@ public class FakeBlockRenderTypes {
       .withLocation(Identifier.fromNamespaceAndPath(FutureLibMod.MODID, "pipeline/solid_colour"))
       .withVertexShader("core/position_color")
       .withFragmentShader("core/position_color")
-      .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS)
+      .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
+      .withPrimitiveTopology(PrimitiveTopology.QUADS)
       .withColorTargetState(new ColorTargetState(BlendFunction.ADDITIVE))
       .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, true))
       // Unlike this file's other pipelines (BEAM/FAKE_BLOCK/LASER all disable culling), this one

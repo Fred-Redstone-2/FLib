@@ -1,5 +1,7 @@
 package com.lothrazar.library.render;
 
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.SubmitNodeStorage;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -10,7 +12,6 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
@@ -72,45 +73,86 @@ public class RenderEntityToBlockLaser {
   /**
    * Overload that allows the caller to specify both the main beam color (r,g,b) and the inner core beam color (beam2r,beam2g,beam2b).
    */
-  public static void drawLasers(InteractionHand activeHand, ItemStack stack, RenderLevelStageEvent event, Vec3 from, HitResult trace, double xOffset, double yOffset, double zOffset, float r, float g, float b, float beam2r, float beam2g, float beam2b, float thickness, Player player, float ticks, float speedModifier) {
-    VertexConsumer builder;
-    double distance = Math.max(1, from.subtract(trace.getLocation()).length());
+  public static void drawLasers(InteractionHand activeHand, ItemStack stack,
+                                RenderLevelStageEvent event, Vec3 from, HitResult trace,
+                                double xOffset, double yOffset, double zOffset,
+                                float r, float g, float b, float beam2r, float beam2g, float beam2b,
+                                float thickness, Player player, float ticks, float speedModifier) {
+    SubmitNodeCollector collector = new SubmitNodeStorage();
+
+    final double distance = Math.max(1, from.subtract(trace.getLocation()).length());
     long gameTime = player.level().getGameTime();
-    double v = gameTime * speedModifier;
-    float additiveThickness = (thickness * 3.5f) * calculateLaserFlickerModifier(gameTime);
-    Vec3 view = Minecraft.getInstance().gameRenderer.getMainCamera().position();
-    MultiBufferSource.BufferSource buffer = Minecraft.getInstance().renderBuffers().bufferSource();
+    final double v = gameTime * speedModifier;
+    final float additiveThickness = (thickness * 3.5f) * calculateLaserFlickerModifier(gameTime);
+    Vec3 view = Minecraft.getInstance().gameRenderer.mainCamera().position();
+
     PoseStack matrix = event.getPoseStack();
     matrix.pushPose();
-    // 26.1: RenderLevelStageEvent's PoseStack supplies neither camera rotation nor translation, and
-    // the GPU's ModelViewMat (DynamicTransforms UBO) doesn't fill that in for this custom pipeline
-    // either (see RenderBlockUtils.createBox/renderColourCubes for the same finding, 2026-08-21) -
-    // without this the laser rendered nothing at all, since raw world-relative coordinates land
-    // nowhere near the projection matrix's expected range. Must be applied before the translate:
-    // PoseStack composes each new op onto the right of the current matrix, so the last-called op
-    // acts on the vertex first.
-    matrix.mulPose(Minecraft.getInstance().gameRenderer.getMainCamera().getViewRotationMatrix(new Matrix4f()));
+    // (garde ton commentaire 26.1 d'origine ici si tu veux)
+    matrix.mulPose(Minecraft.getInstance().gameRenderer.mainCamera().getViewRotationMatrix(new Matrix4f()));
     matrix.translate(-view.x(), -view.y(), -view.z());
     matrix.translate(from.x, from.y, from.z);
     matrix.mulPose(Axis.YP.rotationDegrees(Mth.lerp(ticks, -player.getYRot(), -player.yRotO)));
     matrix.mulPose(Axis.XP.rotationDegrees(Mth.lerp(ticks, player.getXRot(), player.xRotO)));
-    //
-    PoseStack.Pose matrixstack$entry = matrix.last();
-    Matrix3f matrixNormal = matrixstack$entry.normal();
-    Matrix4f positionMatrix = matrixstack$entry.pose();
-    //additive laser beam
-    builder = buffer.getBuffer(LaserRenderType.LASER_MAIN_ADDITIVE);
-    drawBeam(stack, xOffset, yOffset, zOffset, builder, positionMatrix, matrixNormal, additiveThickness, activeHand, distance, 0.5, 1, ticks, r, g, b, 0.7f);
-    //main laser, colored part
-    builder = buffer.getBuffer(LaserRenderType.LASER_MAIN_BEAM);
-    drawBeam(stack, xOffset, yOffset, zOffset, builder, positionMatrix, matrixNormal, thickness, activeHand, distance, v, v + distance * 1.5, ticks, r, g, b, 1f);
-    //core
-    builder = buffer.getBuffer(LaserRenderType.LASER_MAIN_CORE);
-    drawBeam(stack, xOffset, yOffset, zOffset, builder, positionMatrix, matrixNormal, thickness / 2, activeHand, distance, v, v + distance * 1.5, ticks, beam2r, beam2g, beam2b, 1f);
+
+    // Three submissions must be made BEFORE popPose: pose captured on submit
+    // additive laser beam
+    collector.submitCustomGeometry(matrix, LaserRenderType.LASER_MAIN_ADDITIVE, (pose, builder) ->
+            drawBeam(stack, xOffset, yOffset, zOffset, builder, pose.pose(), pose.normal(), additiveThickness,
+                    activeHand, distance, 0.5, 1, ticks, r, g, b, 0.7f));
+
+    // main laser, colored part
+    collector.submitCustomGeometry(matrix, LaserRenderType.LASER_MAIN_BEAM, (pose, builder) ->
+            drawBeam(stack, xOffset, yOffset, zOffset, builder, pose.pose(), pose.normal(), thickness,
+                    activeHand, distance, v, v + distance * 1.5, ticks, r, g, b, 1f));
+
+    // core
+    collector.submitCustomGeometry(matrix, LaserRenderType.LASER_MAIN_CORE, (pose, builder) ->
+            drawBeam(stack, xOffset, yOffset, zOffset, builder, pose.pose(), pose.normal(), thickness / 2,
+                    activeHand, distance, v, v + distance * 1.5, ticks, beam2r, beam2g, beam2b, 1f));
+
     matrix.popPose();
-    //      RenderSystem.disableDepthTest();
-    buffer.endBatch();
   }
+
+//  public static void drawLasers(InteractionHand activeHand, ItemStack stack, RenderLevelStageEvent event, Vec3 from, HitResult trace, double xOffset, double yOffset, double zOffset, float r, float g, float b, float beam2r, float beam2g, float beam2b, float thickness, Player player, float ticks, float speedModifier) {
+//    VertexConsumer builder;
+//    double distance = Math.max(1, from.subtract(trace.getLocation()).length());
+//    long gameTime = player.level().getGameTime();
+//    double v = gameTime * speedModifier;
+//    float additiveThickness = (thickness * 3.5f) * calculateLaserFlickerModifier(gameTime);
+//    Vec3 view = Minecraft.getInstance().gameRenderer.mainCamera().position();
+//    MultiBufferSource.BufferSource buffer = Minecraft.getInstance().renderBuffers().bufferSource();
+//    PoseStack matrix = event.getPoseStack();
+//    matrix.pushPose();
+//    // 26.1: RenderLevelStageEvent's PoseStack supplies neither camera rotation nor translation, and
+//    // the GPU's ModelViewMat (DynamicTransforms UBO) doesn't fill that in for this custom pipeline
+//    // either (see RenderBlockUtils.createBox/renderColourCubes for the same finding, 2026-08-21) -
+//    // without this the laser rendered nothing at all, since raw world-relative coordinates land
+//    // nowhere near the projection matrix's expected range. Must be applied before the translate:
+//    // PoseStack composes each new op onto the right of the current matrix, so the last-called op
+//    // acts on the vertex first.
+//    matrix.mulPose(Minecraft.getInstance().gameRenderer.mainCamera().getViewRotationMatrix(new Matrix4f()));
+//    matrix.translate(-view.x(), -view.y(), -view.z());
+//    matrix.translate(from.x, from.y, from.z);
+//    matrix.mulPose(Axis.YP.rotationDegrees(Mth.lerp(ticks, -player.getYRot(), -player.yRotO)));
+//    matrix.mulPose(Axis.XP.rotationDegrees(Mth.lerp(ticks, player.getXRot(), player.xRotO)));
+//    //
+//    PoseStack.Pose matrixstack$entry = matrix.last();
+//    Matrix3f matrixNormal = matrixstack$entry.normal();
+//    Matrix4f positionMatrix = matrixstack$entry.pose();
+//    //additive laser beam
+//    builder = buffer.getBuffer(LaserRenderType.LASER_MAIN_ADDITIVE);
+//    drawBeam(stack, xOffset, yOffset, zOffset, builder, positionMatrix, matrixNormal, additiveThickness, activeHand, distance, 0.5, 1, ticks, r, g, b, 0.7f);
+//    //main laser, colored part
+//    builder = buffer.getBuffer(LaserRenderType.LASER_MAIN_BEAM);
+//    drawBeam(stack, xOffset, yOffset, zOffset, builder, positionMatrix, matrixNormal, thickness, activeHand, distance, v, v + distance * 1.5, ticks, r, g, b, 1f);
+//    //core
+//    builder = buffer.getBuffer(LaserRenderType.LASER_MAIN_CORE);
+//    drawBeam(stack, xOffset, yOffset, zOffset, builder, positionMatrix, matrixNormal, thickness / 2, activeHand, distance, v, v + distance * 1.5, ticks, beam2r, beam2g, beam2b, 1f);
+//    matrix.popPose();
+//    //      RenderSystem.disableDepthTest();
+//    buffer.endBatch();
+//  }
 
   /**
    * Citation/source/author
