@@ -2,7 +2,6 @@ package com.lothrazar.library.render.type;
 
 import com.lothrazar.library.FutureLibMod;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
@@ -10,29 +9,20 @@ import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.client.event.RegisterRenderPipelinesEvent;
 
-import static com.lothrazar.library.render.type.Samplers.SAMPLER_0;
-import static com.lothrazar.library.render.type.Samplers.SAMPLER_2;
-
 /**
  * Source from MIT open source https://github.com/mekanism/Mekanism/tree/1.15x
  * <p>
  * https://github.com/mekanism/Mekanism/blob/1.15x/LICENSE
  *
- * 26.1 port: see LaserRenderType for the general RenderPipeline/RenderSetup migration notes.
- * The original RENDERTYPE_CUTOUT_SHADER + POSITION_COLOR_TEX_LIGHTMAP combination doesn't map
- * cleanly onto the new pipeline system (vanilla's cutout shader now requires the full BLOCK
- * vertex format). Reusing the text-shader pipeline (translucent, not true alpha-cutout) instead,
- * matching the same simplification already used for FakeBlockRenderTypes.FAKE_BLOCK.
+ * Reuses the world text pipeline shape (translucent, not true alpha-cutout), matching the
+ * simplification already used for FakeBlockRenderTypes.FAKE_BLOCK.
  */
 public class FluidTankRenderType {
 
-  private static final RenderPipeline RESIZABLE_PIPELINE = RenderPipeline.builder(RenderPipelines.TEXT_SNIPPET)
-      .withBindGroupLayout(BindGroupLayouts.FOG)
-      .withBindGroupLayout(SAMPLER_0.sampler())
-      .withBindGroupLayout(SAMPLER_2.sampler())
+  private static final RenderPipeline RESIZABLE_PIPELINE = RenderPipeline.builder(RenderPipelines.WORLD_TEXT_SNIPPET)
       .withLocation(Identifier.fromNamespaceAndPath(FutureLibMod.MODID, "pipeline/fluidtank_resizable"))
-      .withVertexShader("core/rendertype_text")
-      .withFragmentShader("core/rendertype_text")
+      .withVertexShader("core/text")
+      .withFragmentShader("core/text")
       .build();
 
   public static final RenderType RESIZABLE = RenderType.create(FutureLibMod.MODID + ":resizable_cuboid",

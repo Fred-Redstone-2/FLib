@@ -3,16 +3,12 @@ package com.lothrazar.library.render.type;
 import java.util.Optional;
 import com.lothrazar.library.FutureLibMod;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.rendertype.LayeringTransform;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.client.event.RegisterRenderPipelinesEvent;
-
-import static com.lothrazar.library.render.type.Samplers.SAMPLER_0;
-import static com.lothrazar.library.render.type.Samplers.SAMPLER_2;
 
 /**
  * 26.1 port: RenderType is no longer subclassable (its constructor is private) and the old
@@ -30,13 +26,10 @@ public class LaserRenderType {
   // Matches the old POSITION_COLOR_TEX_LIGHTMAP + RENDERTYPE_TEXT_SHADER + TRANSLUCENT_TRANSPARENCY +
   // NO_DEPTH_TEST + NO_CULL + LIGHTMAP combination: reuse vanilla's text pipeline shape (same vertex
   // format and shader) but disable depth testing and culling for an unlit, always-visible beam.
-  public static final RenderPipeline LASER_PIPELINE = RenderPipeline.builder(RenderPipelines.TEXT_SNIPPET)
-      .withBindGroupLayout(BindGroupLayouts.FOG)
-      .withBindGroupLayout(SAMPLER_0.sampler())
-      .withBindGroupLayout(SAMPLER_2.sampler())
+  public static final RenderPipeline LASER_PIPELINE = RenderPipeline.builder(RenderPipelines.WORLD_TEXT_SNIPPET)
       .withLocation(Identifier.fromNamespaceAndPath(FutureLibMod.MODID, "pipeline/laser_beam"))
-      .withVertexShader("core/rendertype_text")
-      .withFragmentShader("core/rendertype_text")
+      .withVertexShader("core/text")
+      .withFragmentShader("core/text")
       .withCull(false)
       .withDepthStencilState(Optional.empty())
       .build();

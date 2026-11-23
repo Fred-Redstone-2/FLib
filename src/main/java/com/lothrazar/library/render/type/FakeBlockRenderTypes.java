@@ -6,7 +6,6 @@ import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.pipeline.*;
 import com.mojang.blaze3d.platform.CompareOp;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.rendertype.LayeringTransform;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
@@ -14,8 +13,6 @@ import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.client.event.RegisterRenderPipelinesEvent;
-
-import static com.lothrazar.library.render.type.Samplers.SAMPLER_0;
 
 /**
  * Render Types with help from direwolf20 MIT open source project https://github.com/Direwolf20-MC/BuildingGadgets/blob/1.15/LICENSE.md
@@ -30,12 +27,10 @@ public class FakeBlockRenderTypes {
 
   public static final Identifier BEAM = Identifier.fromNamespaceAndPath(FutureLibMod.MODID, "textures/effect/beam.png");
 
-  private static final RenderPipeline BEAM_PIPELINE = RenderPipeline.builder(RenderPipelines.TEXT_SNIPPET)
-      .withBindGroupLayout(BindGroupLayouts.FOG)
-      .withBindGroupLayout(SAMPLER_0.sampler())
+  private static final RenderPipeline BEAM_PIPELINE = RenderPipeline.builder(RenderPipelines.WORLD_TEXT_SNIPPET)
       .withLocation(Identifier.fromNamespaceAndPath(FutureLibMod.MODID, "pipeline/fakeblock_beam"))
-      .withVertexShader("core/rendertype_text")
-      .withFragmentShader("core/rendertype_text")
+      .withVertexShader("core/text")
+      .withFragmentShader("core/text")
       .withCull(false)
       .withDepthStencilState(Optional.empty())
       .build();
@@ -43,15 +38,14 @@ public class FakeBlockRenderTypes {
   public static final RenderType LASER_MAIN_BEAM = RenderType.create("flib:mininglasermainbeam",
       RenderSetup.builder(BEAM_PIPELINE)
           .withTexture("Sampler0", BEAM)
+          .useLightmap()
           .setLayeringTransform(LayeringTransform.VIEW_OFFSET_Z_LAYERING)
           .createRenderSetup());
 
-  private static final RenderPipeline FAKE_BLOCK_PIPELINE = RenderPipeline.builder(RenderPipelines.TEXT_SNIPPET)
-      .withBindGroupLayout(BindGroupLayouts.FOG)
-      .withBindGroupLayout(SAMPLER_0.sampler())
+  private static final RenderPipeline FAKE_BLOCK_PIPELINE = RenderPipeline.builder(RenderPipelines.WORLD_TEXT_SNIPPET)
       .withLocation(Identifier.fromNamespaceAndPath(FutureLibMod.MODID, "pipeline/fakeblock"))
-      .withVertexShader("core/rendertype_text")
-      .withFragmentShader("core/rendertype_text")
+      .withVertexShader("core/text")
+      .withFragmentShader("core/text")
       .withColorTargetState(new ColorTargetState(BlendFunction.ADDITIVE))
       .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, true))
       .build();
@@ -62,6 +56,7 @@ public class FakeBlockRenderTypes {
   public static final RenderType FAKE_BLOCK = RenderType.create("flib:fakeblock",
       RenderSetup.builder(FAKE_BLOCK_PIPELINE)
           .withTexture("Sampler0", TextureAtlas.LOCATION_BLOCKS)
+          .useLightmap()
           .setLayeringTransform(LayeringTransform.VIEW_OFFSET_Z_LAYERING)
           .createRenderSetup());
 
