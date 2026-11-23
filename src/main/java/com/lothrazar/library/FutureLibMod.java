@@ -9,6 +9,7 @@ import com.lothrazar.library.mod.CommandModule;
 import com.lothrazar.library.mod.ConfigModule;
 import com.lothrazar.library.mod.FlibRegistrations;
 import com.lothrazar.library.mod.PacketRegistry;
+import com.lothrazar.library.registry.RecipeCompostFactory;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -27,5 +28,6 @@ public class FutureLibMod {
     PlayerCapProvider.ATTACHMENT_TYPES.register(bus);
     FlibRegistrations.register(bus);
     bus.addListener(PacketRegistry::onRegisterPayloads);
+    bus.addListener(RecipeCompostFactory::modifyDefaultComponents);
   }
 }

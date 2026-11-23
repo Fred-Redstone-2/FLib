@@ -3,29 +3,66 @@ package com.lothrazar.library.cap;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
-import net.neoforged.neoforge.energy.EnergyStorage;
+import net.neoforged.neoforge.transfer.energy.SimpleEnergyHandler;
+import net.neoforged.neoforge.transfer.transaction.Transaction;
 
 /**
  * For use with items, tile entities, etc.
  *
  * @see cyclic
  */
-public class EnergyStorageWrapper extends EnergyStorage {
+public class EnergyStorageWrapper extends SimpleEnergyHandler {
 
   public static final String NBTENERGY = "energy";
 
   public EnergyStorageWrapper(int capacity, int maxTransfer) {
-    super(capacity, maxTransfer);
+    super(capacity, maxTransfer, maxTransfer);
   }
 
   public void setEnergy(int energyIn) {
     if (energyIn < 0) {
       energyIn = 0;
     }
-    if (energyIn > getMaxEnergyStored()) {
-      energyIn = getMaxEnergyStored();
+    if (energyIn > getCapacityAsInt()) {
+      energyIn = getCapacityAsInt();
     }
-    this.energy = energyIn;
+    set(energyIn);
+  }
+
+  public int getEnergyStored() {
+    return getAmountAsInt();
+  }
+
+  public int getMaxEnergyStored() {
+    return getCapacityAsInt();
+  }
+
+  public int receiveEnergy(int maxReceive, boolean simulate) {
+    try (Transaction transaction = Transaction.openRoot()) {
+      int received = insert(maxReceive, transaction);
+      if (!simulate) {
+        transaction.commit();
+      }
+      return received;
+    }
+  }
+
+  public int extractEnergy(int maxExtract, boolean simulate) {
+    try (Transaction transaction = Transaction.openRoot()) {
+      int extracted = extract(maxExtract, transaction);
+      if (!simulate) {
+        transaction.commit();
+      }
+      return extracted;
+    }
+  }
+
+  public boolean canExtract() {
+    return true;
+  }
+
+  public boolean canReceive() {
+    return true;
   }
 
   /**
@@ -34,7 +71,7 @@ public class EnergyStorageWrapper extends EnergyStorage {
    */
   public CompoundTag saveToTag() {
     CompoundTag tag = new CompoundTag();
-    tag.putInt(NBTENERGY, getEnergyStored());
+    tag.putInt(NBTENERGY, getAmountAsInt());
     return tag;
   }
 
@@ -48,7 +85,7 @@ public class EnergyStorageWrapper extends EnergyStorage {
   // Override ValueIOSerializable from EnergyStorage
   @Override
   public void serialize(ValueOutput output) {
-    output.putInt(NBTENERGY, getEnergyStored());
+    output.putInt(NBTENERGY, getAmountAsInt());
   }
 
   @Override

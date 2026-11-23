@@ -4,74 +4,77 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
-import net.neoforged.neoforge.energy.IEnergyStorage;
+import net.neoforged.neoforge.transfer.energy.SimpleEnergyHandler;
+import net.neoforged.neoforge.transfer.transaction.Transaction;
 
 /**
- * IEnergyStorage that reads/writes energy to an ItemStack's CustomData component.
- * TODO 26.1 port: the capability key moved to Capabilities.Energy.ITEM, which now expects a
- * transactional EnergyHandler rather than IEnergyStorage - registration needs a fresh look.
- * In NeoForge 1.21.x, this was registered via RegisterCapabilitiesEvent:
- *   event.registerItem(Capabilities.EnergyStorage.ITEM,
- *       (stack, ctx) -> new EnergyCapabilityItemStack(stack, maxEnergy), myItem);
+ * Energy handler that reads/writes energy to an ItemStack's CustomData component.
+ * Register this handler with Capabilities.Energy.ITEM when attaching it to an item.
  */
-public class EnergyCapabilityItemStack implements IEnergyStorage {
+public class EnergyCapabilityItemStack extends SimpleEnergyHandler {
 
   public static final String NBTENERGY = "energy";
   private final ItemStack stack;
-  private final int max;
 
   public EnergyCapabilityItemStack(final ItemStack stack, int capacity) {
+    super(capacity, capacity / 4, capacity);
     this.stack = stack;
-    this.max = capacity;
+    CustomData data = stack.get(DataComponents.CUSTOM_DATA);
+    if (data != null) {
+      set(data.copyTag().getIntOr(NBTENERGY, 0));
+    }
   }
 
-  @Override
   public int receiveEnergy(int maxReceive, boolean simulate) {
     if (!canReceive()) return 0;
-    int stored = getEnergyStored();
-    int received = Math.min(max - stored, Math.min(max / 4, maxReceive));
-    if (!simulate) setEnergyStored(stored + received);
-    return received;
+    try (Transaction transaction = Transaction.openRoot()) {
+      int received = insert(maxReceive, transaction);
+      if (!simulate) {
+        transaction.commit();
+      }
+      return received;
+    }
   }
 
-  @Override
   public int extractEnergy(int maxExtract, boolean simulate) {
     if (!canExtract()) return 0;
-    int stored = getEnergyStored();
-    int extracted = Math.min(stored, maxExtract);
-    if (!simulate) setEnergyStored(stored - extracted);
-    return extracted;
+    try (Transaction transaction = Transaction.openRoot()) {
+      int extracted = extract(maxExtract, transaction);
+      if (!simulate) {
+        transaction.commit();
+      }
+      return extracted;
+    }
   }
 
-  @Override
   public int getEnergyStored() {
-    CustomData data = stack.get(DataComponents.CUSTOM_DATA);
-    return data != null ? data.copyTag().getIntOr(NBTENERGY, 0) : 0;
+    return getAmountAsInt();
   }
 
-  @Override
   public int getMaxEnergyStored() {
-    return max;
+    return getCapacityAsInt();
   }
 
-  @Override
   public boolean canExtract() {
     return true;
   }
 
-  @Override
   public boolean canReceive() {
     return true;
   }
 
-  private void setEnergyStored(int value) {
+  @Override
+  protected void onEnergyChanged(int value) {
+    if (stack == null) {
+      return;
+    }
     CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-    tag.putInt(NBTENERGY, Math.max(0, Math.min(value, max)));
+    tag.putInt(NBTENERGY, value);
     stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
   }
 
   @Override
   public String toString() {
-    return "EnergyCapabilityItemStack [energy=" + getEnergyStored() + ", max=" + max + "]";
+    return "EnergyCapabilityItemStack [energy=" + getEnergyStored() + ", max=" + getMaxEnergyStored() + "]";
   }
 }

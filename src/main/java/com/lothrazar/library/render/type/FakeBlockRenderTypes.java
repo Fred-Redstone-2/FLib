@@ -83,7 +83,7 @@ public class FakeBlockRenderTypes {
 
   /**
    * used by EventRender -> RenderWorldLastEvent by most held items that pick locations, such as cyclic:location_data
-   * 26.1 port note: do NOT use setOutputTarget(ITEM_ENTITY_TARGET)
+   * Render targets are selected by the render phase rather than set on the RenderType.
    */
   public static final RenderType TRANSPARENT_COLOUR = RenderType.create("flib:transparentcolour",
       RenderSetup.builder(SOLID_COLOUR_PIPELINE)

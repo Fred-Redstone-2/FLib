@@ -45,13 +45,9 @@ public class OverlayRenderType {
       .build();
 
   public static RenderType overlayRenderer(String id, Identifier resourceLocation) {
-    // OutputTarget no longer has a dedicated TRANSLUCENT_TARGET (only MAIN_TARGET/OUTLINE_TARGET/
-    // WEATHER_TARGET/ITEM_ENTITY_TARGET) - defaulting to MAIN_TARGET, which is also the RenderSetup
-    // builder's own default if left unset.
     return RenderType.create(id,
         RenderSetup.builder(OVERLAY_PIPELINE)
             .withTexture("Sampler0", resourceLocation)
-            .setOutputTarget(OutputTarget.MAIN_TARGET)
             .createRenderSetup());
   }
 

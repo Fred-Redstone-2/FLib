@@ -16,7 +16,7 @@ public class RenderTextUtil {
   public static void alignRendering(PoseStack matrix, Direction side) {
     // Rotate to face the correct direction for the drawer's orientation.
     matrix.translate(.5f, .5f, .5f);
-    matrix.mulPose(Axis.YP.rotationDegrees(getRotationYForSide2D(side)));
+    matrix.rotateDegrees(Axis.YP, getRotationYForSide2D(side));
     //    matrix.mulPose(new Quaternion(Axis.YP, getRotationYForSide2D(side), true));
     matrix.translate(-.5f, -.5f, -.5f);
   }

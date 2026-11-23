@@ -29,7 +29,6 @@ public class LineRenderType {
     return RenderType.create("flib:tomb_lines",
         RenderSetup.builder(TOMB_LINES_PIPELINE)
             .setLayeringTransform(LayeringTransform.VIEW_OFFSET_Z_LAYERING)
-            .setOutputTarget(OutputTarget.ITEM_ENTITY_TARGET)
             .createRenderSetup());
   }
 

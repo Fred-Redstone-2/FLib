@@ -11,17 +11,14 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.component.TooltipDisplay;
-import net.minecraft.world.item.crafting.RecipeType;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.entity.FuelValues;
 
 public class BlockItemFlib extends BlockItem {
 
   private Settings me;
 
   public BlockItemFlib(Block b, Properties prop, Settings custom) {
-    super(b, prop);
+    super(b, ItemFlib.applyBurnTime(prop, custom));
     this.me = custom;
   }
 
@@ -42,8 +39,4 @@ public class BlockItemFlib extends BlockItem {
     super.appendHoverText(stack, worldIn, display, tooltipAdder, flagIn);
   }
 
-  @Override
-  public int getBurnTime(ItemStack itemStack, RecipeType<?> recipeType, FuelValues fuelValues) {
-    return me.burnTime;
-  }
 }

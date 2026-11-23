@@ -338,7 +338,7 @@ public class ShapeUtil {
   public static List<BlockPos> squarePyramid(final BlockPos pos, final int radius, final int height) {
     List<BlockPos> shape = new ArrayList<BlockPos>();
     int radiusCurrent = radius;
-    BlockPos posCurrent = new BlockPos(pos);
+    BlockPos posCurrent = new BlockPos(pos.getX(), pos.getY(), pos.getZ());
     for (int i = 0; i < radius; i++) {
       shape.addAll(rectHollow(posCurrent, radiusCurrent, radiusCurrent));
       radiusCurrent--;

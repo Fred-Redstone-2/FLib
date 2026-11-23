@@ -16,7 +16,7 @@ public class FluidHolder {
   public static Block.Properties blockProps() {
     return Block.Properties.of().liquid()
         .replaceable()
-        .pushReaction(PushReaction.DESTROY)
+        .pushReaction(PushReaction.POPPED)
         .sound(SoundType.EMPTY)
         .noCollision()
         .noOcclusion()

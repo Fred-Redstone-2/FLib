@@ -9,35 +9,33 @@ import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
+import net.neoforged.neoforge.transfer.ItemAccessResourceHandler;
+import net.neoforged.neoforge.transfer.access.ItemAccess;
+import net.neoforged.neoforge.transfer.fluid.FluidResource;
+import net.neoforged.neoforge.transfer.item.ItemResource;
+import net.neoforged.neoforge.transfer.transaction.TransactionContext;
 
 /**
- * IFluidHandlerItem that reads/writes a single fluid to an ItemStack's CustomData component.
- * TODO 26.1 port: the capability key moved to Capabilities.Fluid.ITEM, which now expects a
- * ResourceHandler<FluidResource> (transactional) rather than IFluidHandlerItem directly - wrap
- * with IFluidHandler.of(...) is the wrong direction here, so registration needs a fresh look.
- * In NeoForge 1.21.x, this was registered via RegisterCapabilitiesEvent:
- *   event.registerItem(Capabilities.FluidHandler.ITEM,
- *       (stack, ctx) -> new FluidHandlerCapabilityStack(stack, capacity), myItem);
+ * Resource handler that reads/writes a single fluid to an ItemStack's CustomData component.
  */
-public class FluidHandlerCapabilityStack implements IFluidHandlerItem {
+public class FluidHandlerCapabilityStack extends ItemAccessResourceHandler<FluidResource> {
 
   public static final String FLUID_NBT_KEY = "Fluid";
-  protected ItemStack container;
-  protected int capacity;
+  protected final ItemStack container;
+  protected final int capacity;
 
   public FluidHandlerCapabilityStack(ItemStack container, int capacity) {
+    super(ItemAccess.forStack(container), 1);
     this.container = container;
     this.capacity = capacity;
   }
 
-  @Override
   public ItemStack getContainer() {
     return container;
   }
 
-  private CompoundTag getContainerTag() {
-    return container.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+  private static CompoundTag getContainerTag(ItemResource item) {
+    return item.toStack(1).getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
   }
 
   private void setContainerTag(CompoundTag tag) {
@@ -45,7 +43,11 @@ public class FluidHandlerCapabilityStack implements IFluidHandlerItem {
   }
 
   public FluidStack getFluid() {
-    CompoundTag tag = getContainerTag();
+    return readFluid(ItemResource.of(container));
+  }
+
+  private static FluidStack readFluid(ItemResource item) {
+    CompoundTag tag = getContainerTag(item);
     if (!tag.contains(FLUID_NBT_KEY)) {
       return FluidStack.EMPTY;
     }
@@ -59,7 +61,7 @@ public class FluidHandlerCapabilityStack implements IFluidHandlerItem {
   }
 
   public void setFluid(FluidStack fluid) {
-    CompoundTag tag = getContainerTag();
+    CompoundTag tag = getContainerTag(ItemResource.of(container));
     if (fluid.isEmpty()) {
       tag.remove(FLUID_NBT_KEY);
     } else {
@@ -72,81 +74,82 @@ public class FluidHandlerCapabilityStack implements IFluidHandlerItem {
   }
 
   @Override
-  public int getTanks() {
-    return 1;
+  protected FluidResource getResourceFrom(ItemResource item, int tank) {
+    return FluidResource.of(readFluid(item));
   }
 
   @Override
-  public FluidStack getFluidInTank(int tank) {
-    return getFluid();
+  protected int getAmountFrom(ItemResource item, int tank) {
+    return readFluid(item).getAmount();
   }
 
   @Override
-  public int getTankCapacity(int tank) {
+  protected ItemResource update(ItemResource item, int tank, FluidResource resource, int amount) {
+    CompoundTag tag = getContainerTag(item);
+    if (resource.isEmpty() || amount <= 0) {
+      tag.remove(FLUID_NBT_KEY);
+    }
+    else {
+      FluidStack fluid = resource.toStack(amount);
+      CompoundTag fluidTag = new CompoundTag();
+      fluidTag.putString("id", BuiltInRegistries.FLUID.getKey(fluid.getFluid()).toString());
+      fluidTag.putInt("amount", amount);
+      tag.put(FLUID_NBT_KEY, fluidTag);
+    }
+    return item.with(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+  }
+
+  @Override
+  protected int getCapacity(int tank, FluidResource resource) {
     return capacity;
   }
 
   @Override
+  public boolean isValid(int tank, FluidResource resource) {
+    return container.getCount() == 1 && !resource.isEmpty() && canFillFluidType(resource.toStack(1));
+  }
+
+  public int getTanks() {
+    return size();
+  }
+
+  public FluidStack getFluidInTank(int tank) {
+    return tank == 0 ? getFluid() : FluidStack.EMPTY;
+  }
+
+  public int getTankCapacity(int tank) {
+    return capacity;
+  }
+
   public boolean isFluidValid(int tank, FluidStack stack) {
     return true;
   }
 
-  @Override
-  public int fill(FluidStack resource, FluidAction doFill) {
+  public int fill(FluidStack resource, TransactionContext transaction) {
     if (container.getCount() != 1 || resource.isEmpty() || !canFillFluidType(resource)) {
       return 0;
     }
-    FluidStack contained = getFluid();
-    if (contained.isEmpty()) {
-      int fillAmount = Math.min(capacity, resource.getAmount());
-      if (doFill.execute()) {
-        FluidStack filled = resource.copy();
-        filled.setAmount(fillAmount);
-        setFluid(filled);
-      }
-      return fillAmount;
-    } else {
-      if (FluidStack.isSameFluidSameComponents(contained, resource)) {
-        int fillAmount = Math.min(capacity - contained.getAmount(), resource.getAmount());
-        if (doFill.execute() && fillAmount > 0) {
-          contained.grow(fillAmount);
-          setFluid(contained);
-        }
-        return fillAmount;
-      }
-      return 0;
-    }
+    return insert(0, FluidResource.of(resource), resource.getAmount(), transaction);
   }
 
-  @Override
-  public FluidStack drain(FluidStack resource, FluidAction action) {
-    if (container.getCount() != 1 || resource.isEmpty() || !FluidStack.isSameFluidSameComponents(resource, getFluid())) {
+  public FluidStack drain(FluidStack resource, TransactionContext transaction) {
+    if (container.getCount() != 1 || resource.isEmpty() || !FluidResource.of(resource).matches(getFluid())) {
       return FluidStack.EMPTY;
     }
-    return drain(resource.getAmount(), action);
+    return drain(resource.getAmount(), transaction);
   }
 
-  @Override
-  public FluidStack drain(int maxDrain, FluidAction action) {
+  public FluidStack drain(int maxDrain, TransactionContext transaction) {
     if (container.getCount() != 1 || maxDrain <= 0) {
       return FluidStack.EMPTY;
     }
-    FluidStack contained = getFluid();
-    if (contained.isEmpty() || !canDrainFluidType(contained)) {
+    FluidResource resource = getResource(0);
+    int amount = getAmountAsInt(0);
+    if (resource.isEmpty() || amount <= 0 || !canDrainFluidType(resource.toStack(amount))) {
       return FluidStack.EMPTY;
     }
-    final int drainAmount = Math.min(contained.getAmount(), maxDrain);
-    FluidStack drained = contained.copy();
-    drained.setAmount(drainAmount);
-    if (action.execute()) {
-      contained.shrink(drainAmount);
-      if (contained.isEmpty()) {
-        setContainerToEmpty();
-      } else {
-        setFluid(contained);
-      }
-    }
-    return drained;
+    int drained = extract(0, resource, maxDrain, transaction);
+    return drained <= 0 ? FluidStack.EMPTY : resource.toStack(drained);
   }
 
   public boolean canFillFluidType(FluidStack fluid) {
@@ -158,12 +161,11 @@ public class FluidHandlerCapabilityStack implements IFluidHandlerItem {
   }
 
   protected void setContainerToEmpty() {
-    CompoundTag tag = getContainerTag();
+    CompoundTag tag = getContainerTag(ItemResource.of(container));
     tag.remove(FLUID_NBT_KEY);
     setContainerTag(tag);
   }
 
-  @Override
   public String toString() {
     return "FluidHandlerCapabilityStack [container=" + container + ", capacity=" + capacity + "]";
   }

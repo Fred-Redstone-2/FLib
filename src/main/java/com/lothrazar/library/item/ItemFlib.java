@@ -17,11 +17,13 @@ import net.minecraft.world.item.BowItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.component.CookingFuel;
 import net.minecraft.world.item.component.TooltipDisplay;
-import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.FuelValues;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.storage.loot.providers.number.ints.ResolvableInt;
+import net.minecraft.world.level.storage.loot.providers.number.floats.ResolvableFloat;
 
 public class ItemFlib extends Item {
 
@@ -57,7 +59,7 @@ public class ItemFlib extends Item {
   private Settings me;
 
   public ItemFlib(Properties prop, Settings custom) {
-    super(prop);
+    super(applyBurnTime(prop, custom));
     this.me = custom;
   }
 
@@ -65,9 +67,12 @@ public class ItemFlib extends Item {
     this(prop, new Settings());
   }
 
-  @Override
-  public int getBurnTime(ItemStack itemStack, RecipeType<?> recipeType, FuelValues fuelValues) {
-    return me.burnTime;
+  static Properties applyBurnTime(Properties properties, Settings settings) {
+    if (settings.burnTime <= 0) {
+      return properties;
+    }
+    return properties.component(DataComponents.COOKING_FUEL,
+        new CookingFuel(new ResolvableInt.Constant(settings.burnTime), new ResolvableFloat.Constant(1.0F)));
   }
 
   @Override

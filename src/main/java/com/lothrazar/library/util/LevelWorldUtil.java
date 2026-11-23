@@ -76,8 +76,8 @@ public class LevelWorldUtil {
   }
 
   public static BlockPos nextReplaceableInDirection(Level world, BlockPos posIn, Direction facing, int max, Block blockMatch) {
-    BlockPos posToPlaceAt = new BlockPos(posIn);
-    BlockPos posLoop = new BlockPos(posIn);
+    BlockPos posToPlaceAt = new BlockPos(posIn.getX(), posIn.getY(), posIn.getZ());
+    BlockPos posLoop = new BlockPos(posIn.getX(), posIn.getY(), posIn.getZ());
     //    world.getBlockState(posLoop).getBlock().isReplaceable(state, useContext)
     for (int i = 0; i < max; i++) {
       BlockState state = world.getBlockState(posLoop);
