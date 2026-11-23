@@ -1,6 +1,5 @@
 package com.lothrazar.library.render;
 
-import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.SubmitNodeStorage;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
@@ -78,7 +77,7 @@ public class RenderEntityToBlockLaser {
                                 double xOffset, double yOffset, double zOffset,
                                 float r, float g, float b, float beam2r, float beam2g, float beam2b,
                                 float thickness, Player player, float ticks, float speedModifier) {
-    SubmitNodeCollector collector = new SubmitNodeStorage();
+    SubmitNodeStorage collector = new SubmitNodeStorage();
 
     final double distance = Math.max(1, from.subtract(trace.getLocation()).length());
     long gameTime = player.level().getGameTime();
@@ -112,6 +111,7 @@ public class RenderEntityToBlockLaser {
                     activeHand, distance, v, v + distance * 1.5, ticks, beam2r, beam2g, beam2b, 1f));
 
     matrix.popPose();
+    Minecraft.getInstance().gameRenderer.featureRenderDispatcher().renderAllFeatures(collector);
   }
 
 //  public static void drawLasers(InteractionHand activeHand, ItemStack stack, RenderLevelStageEvent event, Vec3 from, HitResult trace, double xOffset, double yOffset, double zOffset, float r, float g, float b, float beam2r, float beam2g, float beam2b, float thickness, Player player, float ticks, float speedModifier) {

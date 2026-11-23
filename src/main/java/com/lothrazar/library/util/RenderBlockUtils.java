@@ -255,7 +255,7 @@ public class RenderBlockUtils {
       matrix.scale(scale, scale, scale);
 
       // La pose est capturée ici, avant le popPose
-      SubmitNodeCollector collector = new SubmitNodeStorage();
+      SubmitNodeStorage collector = new SubmitNodeStorage();
       collector.submitCustomGeometry(matrix, FakeBlockRenderTypes.FAKE_BLOCK, (pose, builder) -> {
         for (List<BakedQuad> quads : quadLists) {
           RenderBlockUtils.renderModelBrightnessColorQuads(pose, builder, red, green, blue, alpha, quads,
@@ -263,6 +263,7 @@ public class RenderBlockUtils {
         }
       });
       matrix.popPose();
+      Minecraft.getInstance().gameRenderer.featureRenderDispatcher().renderAllFeatures(collector);
     }
     matrix.popPose();
   }
@@ -333,7 +334,7 @@ public class RenderBlockUtils {
    */
   public static void renderOutline(BlockPos view, List<BlockPos> coords,
                                    PoseStack matrix, float scale, Color color) {
-    SubmitNodeCollector collector = new SubmitNodeStorage();
+    SubmitNodeStorage collector = new SubmitNodeStorage();
 
     // Copie : le dessin est différé, la liste de l'appelant pourrait changer d'ici là
     final List<BlockPos> cubes = new ArrayList<>(coords.size());
@@ -365,6 +366,7 @@ public class RenderBlockUtils {
     });
 
     matrix.popPose();
+    Minecraft.getInstance().gameRenderer.featureRenderDispatcher().renderAllFeatures(collector);
   }
 
 //  public static void renderOutline(BlockPos view, List<BlockPos> coords, PoseStack matrix, float scale, Color color) {
@@ -416,7 +418,7 @@ public class RenderBlockUtils {
    */
   public static void renderColourCubes(PoseStack matrix, Vec3 view,
                                        Map<BlockPos, Color> coords, float scale, float alpha) {
-    SubmitNodeCollector collector = new SubmitNodeStorage();
+    SubmitNodeStorage collector = new SubmitNodeStorage();
 
     LocalPlayer player = Minecraft.getInstance().player;
     if (player == null) {
@@ -449,6 +451,7 @@ public class RenderBlockUtils {
     });
 
     matrix.popPose();
+    Minecraft.getInstance().gameRenderer.featureRenderDispatcher().renderAllFeatures(collector);
   }
 
 //  public static void renderColourCubes(PoseStack matrix, Vec3 view, Map<BlockPos, Color> coords, float scale, float alpha) {
@@ -496,9 +499,11 @@ public class RenderBlockUtils {
     createBox(poseStack, pos, Minecraft.getInstance().gameRenderer.mainCamera().position());
   }
   public static void createBox(PoseStack poseStack, BlockPos pos, Vec3 poseOriginInWorld) {
+    SubmitNodeStorage collector = new SubmitNodeStorage();
     poseStack.pushPose();
-    createBox(new SubmitNodeStorage(), poseOriginInWorld, poseStack, pos.getX(), pos.getY(), pos.getZ(), 1.0F);
+    createBox(collector, poseOriginInWorld, poseStack, pos.getX(), pos.getY(), pos.getZ(), 1.0F);
     poseStack.popPose();
+    Minecraft.getInstance().gameRenderer.featureRenderDispatcher().renderAllFeatures(collector);
   }
 
 
@@ -512,7 +517,6 @@ public class RenderBlockUtils {
     //rainbow magic
     float[] color = getRandomColour();
     // distance-clamp far positions (use the real camera, not the pose-origin offset)
-    // getMainCamera() -> mainCamera() en 26.2
     Camera cam = Minecraft.getInstance().gameRenderer.mainCamera();
     Vec3 camera = cam.position();
     Vec3 vec = new Vec3(x, y, z).subtract(camera);
